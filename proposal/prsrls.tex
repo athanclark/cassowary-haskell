@@ -1,0 +1,32 @@
+\renewcommand{\pressbegin}{
+\settowidth{\@utila}{\@addr@fr}%
+\renewcommand{\ifta}{0}%
+\txa{Setup beginning of press release}%
+\renewcommand{\headrulewidth}{0pt}\renewcommand{\footrulewidth}{0pt}%
+%\vspace{-2cm} % Uncomment if you don't use a logo
+\begin{flushleft}%
+\large
+\rule{\textwidth}{1pt} \par \noindent
+\centerline{\LARGE \@pr@release \strut} \par\noindent%
+\rule{\textwidth}{1pt} \par \noindent
+\setlength{\tabcolsep}{0pt}%
+\begin{tabular}{l@{\hspace{1em}}l}%
+\textbf{\@contact@phr:} & \@name@fr \strut \\%
+% & \parbox[t]{\@utila}{\@addr@fr  \strut } \strut \\ %%
+\ifempty{\@phn@fr}{}{\textbf{\@phn@phr:} & \@phn@fr \strut \\}%
+\ifempty{\@phnb@fr}{}{\textbf{\@phn@phr:} & \@phnb@fr \strut \\}%
+\ifempty{\@phnc@fr}{}{\textbf{\@phn@phr:} & \@phnc@fr \strut \\}%
+\ifempty{\@phnd@fr}{}{\textbf{\@phn@phr:} & \@phnd@fr \strut \\}%
+\ifempty{\@email@fr}{}{\textbf{\@email@phr:} & \@email@fr \strut \\}%
+\textbf{Date:} & \@xdate%
+\end{tabular}%
+\end{flushleft}%
+\rule{\textwidth}{1pt} \par \noindent
+\centerline{\textbf{\Large \@pr@headline}} \par \noindent \ifempty{\subtitle}{}{\begin{center} \textit{\subtitle} \end{center}}
+\rule{\textwidth}{1pt} \par \noindent
+\begin{doublespace}%
+\ifthenelse{\boolean{@pr@by}}{\noindent \@pr@byline \\}{}\noindent}%
+\PhrMore{\thepage\ of \pageref{LastPage}}
+\Cfooter{\@more@phr}\cfooter{\@more@phr}%
+\cheader{\vspace{1cm}\@pr@shorthead \vspace{1cm}}\rheader{\thepage \vspace{1cm}}%
+\unprbottom{1cm}
