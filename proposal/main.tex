@@ -291,15 +291,43 @@ api would be possible, but for me that is less important than making a PureScrip
 well. Along this line of reasoning, I could also cater your desires for an end-user api to your liking,
 but again this will have to be post-implementation.
 
-\subsection{Expected Time}
+\subsection{Proposal}
 
-I expect to have a working implementation in less than two weeks - I already have syntax data structures
-implemented, including some basic reduction algorithms. I would like to estimate at two weeks, though, to
-give myself the time to properly polish, test and benchmark the codebase.
+This will be an implementation of
+\href{https://constraints.cs.washington.edu/solvers/cassowary-tochi.pdf}{Cassowary}
+in PureScript, callable from JavaScript.
+Extensive tests will be declared for this implementation, including \textbf{all tests} currently
+satisfied in
+\href{https://github.com/slightlyoff/cassowary.js/tree/master/tests}{the existing Cassowary.js implementation}.
+Proof of this subsumption will be provided in detail as both a formal document, and a pluggable
+architecture, so one can see first-hand that all tests are included.
 
-I also see this library as beloning to you, my employer, therefore publication rights and licensing is
-up to you. I would prefer to make the system open source, to allow other people to improve on it, but
-I am not against making the product privately owned.
+Modifications may also be made to the Cassowary specification (in the paper referenced above) -
+including its
+\href{https://www.me.utexas.edu/~jensen/ORMM/supplements/methods/lpmethod/S1_dualsimplex.pdf}{Dual-Simplex Method}
+orientation, potentially porting to an
+\href{http://en.wikipedia.org/wiki/Mehrotra_predictor%E2%80%93corrector_method}{Interior-Point method}.
+Likewise, some of the homogeneous matrix arithmetic may be offloaded to
+\href{https://www.khronos.org/webcl/}{WebCL} or
+\href{https://developer.mozilla.org/en-US/docs/Web/WebGL}{WebGL} depending on its feasibility
+and improved performance.
+
+I expect to have the working implementation completed in less than two weeks (by June 24th, 2015).
+This implementation will include \textbf{all tests}, and will be correct. Likewise, there will be
+efforts made to offload more difficult work to optimize the algorithm (via WebGL or WebCL as stated
+above), but it is not guaranteed to solve a set of constraints, modified constraint, or appended
+constraint in under 30 milliseconds on an average machine, although serious attempts will be made
+to achieve this goal.
+
+I have
+\href{http://hackage.haskell.org/package/linear-grammar}{syntactic data structures implemented},
+and almost have a pure, basic
+\href{https://github.com/athanclark/simplex-basic}{Primal Simplex implementation} completed
+(without SIMD enhancements) as of June 10th, 2015.
+
+It has also been stated that the product will be released as open-source under an
+\href{http://opensource.org/licenses/MIT}{MIT license} once it's complete.
+
 
 \end{singlespace} % Uncomment for single line spacing
 

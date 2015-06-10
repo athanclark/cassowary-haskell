@@ -55,7 +55,7 @@ addLin = go (LinExpr [] 0)
     go (LinExpr vs c) (ECoeff (EVar n) x) = LinExpr (LinVar n x:vs) c
     go le (EAdd e1 e2) = mergeLinExpr (go le e1) (go le e2)
 
--- | Merged duplicate @LinVar@s in a @LinExpr@.
+-- | Merged duplicate @LinVar@s in a @LinExpr@. Should be used /after/ @addLin@.
 removeDupLin :: LinExpr -> LinExpr
 removeDupLin (LinExpr vs c) = LinExpr (foldr go [] vs) c
   where
@@ -64,3 +64,6 @@ removeDupLin (LinExpr vs c) = LinExpr (foldr go [] vs) c
     go (LinVar n x) xs = case find (hasName $ LinVar n x) xs of
       Just (LinVar m y) -> LinVar m (y + x):filter (not . hasName (LinVar n x)) xs
       Nothing           -> xs
+
+makeLinExpr :: LinAst -> LinExpr
+makeLinExpr = removeDupLin . addLin . multLin
