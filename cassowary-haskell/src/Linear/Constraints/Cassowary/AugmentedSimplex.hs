@@ -11,14 +11,24 @@ import Control.Monad.State
 
 type Constraint = () -- FIXME
 
+data IneqSlack = IneqSlack
+  { slackIneq :: IneqStdForm
+  , slackVars :: [LinVar]
+  } deriving (Show, Eq)
+
+data EqualitySlack = EqualitySlack
+  { slackEqu :: Equality
+  , slackEquVars :: [LinVar]
+  } deriving (Show, Eq)
+
 data FreshnessState = FreshnessState
   { freshSuffix :: Integer  -- new number each slack var as a suffix
   , varsInScope :: [String] -- ^ unique list of vars used already in constraint set
   } deriving (Show, Eq)
 
 makeSlackVars :: MonadState FreshnessState m
-              => ([Constraint], Equality)
-              -> m ([Constraint], Equality)
+              => ([IneqStdForm], Equality)
+              -> m ([IneqSlack], EqualitySlack)
 makeSlackVars (cs, f) = undefined -- adopt from simplex-basic
 
 type Unrestricted = [Constraint]
