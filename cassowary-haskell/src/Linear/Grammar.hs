@@ -29,6 +29,24 @@ data LinAst =
   | EAdd LinAst LinAst
   deriving (Show, Eq)
 
+instance HasVariables LinAst [String] where
+  names (EVar n) = [n]
+  names (ELit _) = []
+  names (ECoeff e _) = names e
+  names (EAdd e1 e2) = names e1 ++ names e2
+  mapNames f (EVar n) = EVar $ head $ f [n]
+  mapNames _ (ELit x) = ELit x
+  mapNames f (ECoeff e c) = ECoeff (mapNames f e) c
+  mapNames f (EAdd e1 e2) = EAdd (mapNames f e1) (mapNames f e2)
+  vars (EVar n) = [n]
+  vars (ELit _) = []
+  vars (ECoeff e _) = names e
+  vars (EAdd e1 e2) = names e1 ++ names e2
+  mapVars f (EVar n) = EVar $ head $ f [n]
+  mapVars _ (ELit x) = ELit x
+  mapVars f (ECoeff e c) = ECoeff (mapNames f e) c
+  mapVars f (EAdd e1 e2) = EAdd (mapNames f e1) (mapNames f e2)
+
 instance Arbitrary LinAst where
   arbitrary = oneof
     [ EVar <$> (:[]) <$> choose ('A','z')
@@ -321,49 +339,34 @@ instance Arbitrary IneqStdForm where
     ]
 
 
--- mapStdVars :: ([LinVar] -> [LinVar]) -> IneqStdForm -> IneqStdForm
--- mapStdVars f (EquStd xs xc) = EquStd (f xs) xc
--- mapStdVars f (LteStd xs xc) = LteStd (f xs) xc
--- mapStdVars f (GteStd xs xc) = GteStd (f xs) xc
---
--- getStdConst :: IneqStdForm -> Rational
--- getStdConst (EquStd _ x) = x
--- getStdConst (LteStd _ x) = x
--- getStdConst (GteStd _ x) = x
---
--- mapStdConst :: (Rational -> Rational) -> IneqStdForm -> IneqStdForm
--- mapStdConst f (EquStd xs xc) = EquStd xs (f xc)
--- mapStdConst f (LteStd xs xc) = LteStd xs (f xc)
--- mapStdConst f (GteStd xs xc) = GteStd xs (f xc)
-
 -- | Turns a user-level AST to a structurally standard from inequality.
--- standardForm :: IneqExpr -> IneqStdForm
--- standardForm = go . standardize
---   where
---     go (EquExpr (LinExpr xs xc) (LinExpr ys yc)) | null xs && yc == 0 = EquStd ys xc
---                                                  | null ys && xc == 0 = EquStd xs yc
---     go (LteExpr (LinExpr xs xc) (LinExpr ys yc)) | null xs && yc == 0 = GteStd ys xc -- Ax >= M
---                                                  | null ys && xc == 0 = LteStd xs yc -- Ax <= M
---     go _ = error "Non-standard Ineq"
---
--- -- | Standardizes user-level inequalities - to be used before @standardForm@.
--- standardize :: IneqExpr -> IneqExpr
--- standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
---   | null xs   = EquExpr (LinExpr [] (xc - yc)) (LinExpr ys 0)
---   | null ys   = EquExpr (LinExpr xs 0) (LinExpr [] (yc - xc))
---   | otherwise =
---       let
---         ys' = map (mapCoeff $ (*) (-1)) ys
---       in
---       EquExpr (removeDupLin $ LinExpr (ys' ++ xs) 0) (LinExpr [] (yc - xc))
--- standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
---   | null xs   = LteExpr (LinExpr [] (xc - yc)) (LinExpr ys 0)
---   | null ys   = LteExpr (LinExpr xs 0) (LinExpr [] (yc - xc))
---   | otherwise =
---       let
---         ys' = map (mapCoeff $ (*) (-1)) ys
---       in
---       LteExpr (removeDupLin $ LinExpr (ys' ++ xs) 0) (LinExpr [] (yc - xc))
+standardForm :: IneqExpr -> IneqStdForm
+standardForm = go . standardize
+  where
+    go (EquExpr (LinExpr xs xc) (LinExpr ys yc)) | null xs && yc == 0 = EquStd $ Equ ys xc
+                                                 | null ys && xc == 0 = EquStd $ Equ xs yc
+    go (LteExpr (LinExpr xs xc) (LinExpr ys yc)) | null xs && yc == 0 = GteStd $ Gte ys xc -- Ax >= M
+                                                 | null ys && xc == 0 = LteStd $ Lte xs yc -- Ax <= M
+    go _ = error "Non-standard Ineq"
+
+-- | Standardizes user-level inequalities - to be used before @standardForm@.
+standardize :: IneqExpr -> IneqExpr
+standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
+  | null xs   = EquExpr (LinExpr [] (xc - yc)) (LinExpr ys 0)
+  | null ys   = EquExpr (LinExpr xs 0) (LinExpr [] (yc - xc))
+  | otherwise =
+      let
+        ys' = mapCoeffs (map ((-1) *)) ys
+      in
+      EquExpr (removeDupLin $ LinExpr (ys' ++ xs) 0) (LinExpr [] (yc - xc))
+standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
+  | null xs   = LteExpr (LinExpr [] (xc - yc)) (LinExpr ys 0)
+  | null ys   = LteExpr (LinExpr xs 0) (LinExpr [] (yc - xc))
+  | otherwise =
+      let
+        ys' = mapCoeffs (map ((-1) *)) ys
+      in
+      LteExpr (removeDupLin $ LinExpr (ys' ++ xs) 0) (LinExpr [] (yc - xc))
 
 hasNoDups :: (Ord a) => [a] -> Bool
 hasNoDups = loop Set.empty
