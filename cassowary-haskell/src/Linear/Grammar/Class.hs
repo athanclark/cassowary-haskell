@@ -17,5 +17,5 @@ class HasCoefficients a where
   mapCoeffs :: ([Rational] -> [Rational]) -> a -> a
 
 class HasConstant a where
-  constant :: a -> Rational
-  mapConstant :: (Rational -> Rational) -> a -> a
+  constVal :: a -> Rational
+  mapConst :: (Rational -> Rational) -> a -> a
