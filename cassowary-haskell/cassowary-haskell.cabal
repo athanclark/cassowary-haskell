@@ -34,6 +34,7 @@ Test-Suite spec
                       , hspec
                       , QuickCheck
                       , quickcheck-instances
+                      , containers
 
 Source-Repository head
   Type:                 git

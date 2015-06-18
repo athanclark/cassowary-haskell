@@ -1,6 +1,7 @@
 module Linear.GrammarSpec (main, spec) where
 
 import Linear.Grammar
+import Linear.Grammar.Class
 
 import Test.Hspec
 import Test.QuickCheck
@@ -53,7 +54,7 @@ prop_removeDup_Idempotency :: LinExpr -> Bool
 prop_removeDup_Idempotency x = removeDupLin x == removeDupLin (removeDupLin x)
 
 prop_ineqStdForm_uniquelyNamed :: IneqStdForm -> Bool
-prop_ineqStdForm_uniquelyNamed x = hasNoDups $ map varName $ getStdVars x
+prop_ineqStdForm_uniquelyNamed x = hasNoDups $ names x
 
-prop_standardize_Idempotency :: Ineq -> Bool
+prop_standardize_Idempotency :: IneqExpr -> Bool
 prop_standardize_Idempotency x = standardize x == standardize (standardize x)
