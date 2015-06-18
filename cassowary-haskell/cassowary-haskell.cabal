@@ -13,10 +13,15 @@ Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
-  Exposed-Modules:      Linear.Constraints.Cassowary
+  Exposed-Modules:      Linear.Grammar
+                        Linear.Grammar.Class
+                        Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
   Build-Depends:        base >= 4.6 && < 5
-                      , linear-grammar
+                      , mtl
+                      , transformers
+                      , QuickCheck
+                      , containers
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
