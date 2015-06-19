@@ -29,6 +29,10 @@ instance HasVariables IneqSlack LinVarMap where
   vars (IneqSlack x xs) = vars x `Map.union` xs
   mapVars f (IneqSlack x xs) = IneqSlack (mapVars f x) $ f xs
 
+instance HasCoefficients IneqSlack where
+  coeffVals (IneqSlack x xs) = coeffVals x ++ coeffVals xs
+  mapCoeffs f (IneqSlack x xs) = IneqSlack (mapCoeffs f x) (mapCoeffs f xs)
+
 instance HasConstant IneqSlack where
   constVal (IneqSlack x _) = constVal x
   mapConst f (IneqSlack x xs) = IneqSlack (mapConst f x) xs
@@ -59,14 +63,32 @@ nextBasic (Equ xs _) =
      then Just $ fst x
      else Nothing
 
+-- | Finds the index of the next row to pivot on - note, list must have
 nextRow :: String -> [IneqSlack] -> Maybe Int
-nextRow col xs = findIndex (\x -> blandRatio col x == Just smallest) xs
+nextRow _ [] = Nothing
+nextRow col xs = elemIndex smallest $ map (blandRatio col) xs
   where
-    smallest = minimum (mapMaybe (blandRatio col) xs)
+    smallest = minimum <$> traverse (blandRatio col) xs
 
+-- | Using Bland's method.
 blandRatio :: String -> IneqSlack -> Maybe Rational
 blandRatio col x = Map.lookup col (vars x) >>=
   \coeff -> Just $ constVal x / coeff
+
+-- | Orients equation over some (existing) variable
+flatten :: String -> IneqSlack -> IneqSlack
+flatten col (IneqSlack x slacks) = case Map.lookup col $ vars x of
+  Just y -> IneqSlack (mapCoeffs (map (/ y)) x) $ Map.map (/ y) slacks
+  Nothing -> error "`flatten` should be called with a variable that exists in the equation"
+
+-- | Takes a flattened focal row and a target row, and removes the focal from the target.
+eliminate :: String -> IneqSlack -> IneqSlack -> IneqSlack
+eliminate col focal target = case Map.lookup col $ vars $ slackIneq target of
+  Just coeff -> let focal' = mapCoeffs (map (* coeff)) focal
+                    go xs = let xs' = Map.unionWith (-) xs (vars focal')
+                            in Map.filter (/= 0) xs'
+    in mapVars go target
+  Nothing -> target
 
 type Unrestricted = [Constraint]
 
