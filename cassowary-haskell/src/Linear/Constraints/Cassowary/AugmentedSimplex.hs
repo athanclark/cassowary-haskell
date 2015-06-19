@@ -72,24 +72,9 @@ pivot (cs,f) = let mCol = nextBasic f
                   )
        _ -> Nothing
 
+     
 -- | Simplex optimization
 optimize :: ([IneqSlack], Equality) -> ([IneqSlack], Equality)
 optimize x = case pivot x of
-  Just (cs,f) -> optimize (cs,f)
-  Nothing -> x
-
--- type Unrestricted = [Constraint]
---
--- unrestricted :: [Constraint] -> Unrestricted
--- unrestricted cs = undefined -- filter
---
--- type Restricted = [Constraint]
---
--- restricted :: [Constraint] -> Restricted
--- restricted cs = undefined -- filter
---
--- -- | @x >= 0@
--- type Positives = [Constraint]
---
--- positives :: [Constraint] -> Positives
--- positives cs = undefined -- filter
+ Just (cs,f) -> optimize (cs,f)
+ Nothing -> x
