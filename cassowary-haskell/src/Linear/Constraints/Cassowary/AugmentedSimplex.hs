@@ -7,6 +7,7 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
+import Linear.Constraints.Slack
 import Linear.Grammar
 import Linear.Grammar.Class
 
@@ -16,44 +17,7 @@ import qualified Data.Map as Map
 import Control.Monad.State
 
 
-type Constraint = () -- FIXME
-
-data IneqSlack = IneqSlack
-  { slackIneq :: IneqStdForm
-  , slackVars :: LinVarMap
-  } deriving (Show, Eq)
-
-instance HasVariables IneqSlack LinVarMap where
-  names (IneqSlack x xs) = names x ++ Map.keys xs
-  mapNames f (IneqSlack x xs) = IneqSlack (mapNames f x) $ Map.mapKeys f xs
-  vars (IneqSlack x xs) = vars x `Map.union` xs
-  mapVars f (IneqSlack x xs) = IneqSlack (mapVars f x) $ f xs
-
-instance HasCoefficients IneqSlack where
-  coeffVals (IneqSlack x xs) = coeffVals x ++ coeffVals xs
-  mapCoeffs f (IneqSlack x xs) = IneqSlack (mapCoeffs f x) (mapCoeffs f xs)
-
-instance HasConstant IneqSlack where
-  constVal (IneqSlack x _) = constVal x
-  mapConst f (IneqSlack x xs) = IneqSlack (mapConst f x) xs
-
-data EqualitySlack = EqualitySlack
-  { slackEqu :: Equality
-  , slackEquVars :: LinVarMap
-  } deriving (Show, Eq)
-
-makeSlackVars :: MonadState Integer m
-              => [IneqStdForm]
-              -> m [IneqSlack]
-makeSlackVars cs = do
-  s <- get
-  put $ s+1
-  mapM mkSlackStdForm cs
-  where
-    mkSlackStdForm c = do
-      s <- get
-      put $ s+1
-      return $ IneqSlack c $ Map.singleton (show s) 1
+-- * Bland's Rule
 
 -- | Most negative coefficient in objective function
 nextBasic :: Equality -> Maybe String
@@ -90,18 +54,42 @@ eliminate col focal target = case Map.lookup col $ vars $ slackIneq target of
     in mapVars go target
   Nothing -> target
 
-type Unrestricted = [Constraint]
 
-unrestricted :: [Constraint] -> Unrestricted
-unrestricted cs = undefined -- filter
 
-type Restricted = [Constraint]
+-- | Performs a single pivot
+pivot :: ([IneqSlack], Equality) -> Maybe ([IneqSlack], Equality)
+pivot (cs,f) = let mCol = nextBasic f
+                   mRow = mCol >>= (`nextRow` cs)
+  in case (mCol, mRow) of
+       (Just col, Just row) -> let csPre = take row cs
+                                   csPost = drop (row+1) cs
+                                   focal = flatten col $ cs !! row
+          in Just ( map (eliminate col focal) csPre
+                 ++ [focal]
+                 ++ map (eliminate col focal) csPost
+                  , case eliminate col focal $ IneqSlack (EquStd f) Map.empty of
+                      (IneqSlack (EquStd x) _) -> x
+                  )
+       _ -> Nothing
 
-restricted :: [Constraint] -> Restricted
-restricted cs = undefined -- filter
+-- | Simplex optimization
+optimize :: ([IneqSlack], Equality) -> ([IneqSlack], Equality)
+optimize x = case pivot x of
+  Just (cs,f) -> optimize (cs,f)
+  Nothing -> x
 
--- | @x >= 0@
-type Positives = [Constraint]
-
-positives :: [Constraint] -> Positives
-positives cs = undefined -- filter
+-- type Unrestricted = [Constraint]
+--
+-- unrestricted :: [Constraint] -> Unrestricted
+-- unrestricted cs = undefined -- filter
+--
+-- type Restricted = [Constraint]
+--
+-- restricted :: [Constraint] -> Restricted
+-- restricted cs = undefined -- filter
+--
+-- -- | @x >= 0@
+-- type Positives = [Constraint]
+--
+-- positives :: [Constraint] -> Positives
+-- positives cs = undefined -- filter

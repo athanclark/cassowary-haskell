@@ -16,6 +16,7 @@ Library
   Exposed-Modules:      Linear.Grammar
                         Linear.Grammar.Class
                         Linear.Constraints.Cassowary
+                        Linear.Constraints.Slack
                         Linear.Constraints.Cassowary.AugmentedSimplex
   Build-Depends:        base >= 4.6 && < 5
                       , mtl

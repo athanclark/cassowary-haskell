@@ -388,6 +388,7 @@ standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
       in
       LteExpr (removeDupLin $ LinExpr (ys' `Map.union` xs) 0) (LinExpr Map.empty (yc - xc))
 
+
 hasNoDups :: (Ord a) => [a] -> Bool
 hasNoDups = loop Set.empty
   where
