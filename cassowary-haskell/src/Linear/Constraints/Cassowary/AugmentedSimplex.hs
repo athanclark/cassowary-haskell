@@ -6,6 +6,8 @@ module Linear.Constraints.Cassowary.AugmentedSimplex where
 
 import Linear.Grammar
 
+import Data.List
+import qualified Data.Map as Map
 import Control.Monad.State
 
 
@@ -13,23 +15,39 @@ type Constraint = () -- FIXME
 
 data IneqSlack = IneqSlack
   { slackIneq :: IneqStdForm
-  , slackVars :: [LinVar]
+  , slackVars :: LinVarMap
   } deriving (Show, Eq)
 
 data EqualitySlack = EqualitySlack
   { slackEqu :: Equality
-  , slackEquVars :: [LinVar]
+  , slackEquVars :: LinVarMap
   } deriving (Show, Eq)
 
-data FreshnessState = FreshnessState
-  { freshSuffix :: Integer  -- new number each slack var as a suffix
-  , varsInScope :: [String] -- ^ unique list of vars used already in constraint set
-  } deriving (Show, Eq)
+makeSlackVars :: MonadState Integer m
+              => [IneqStdForm]
+              -> m [IneqSlack]
+makeSlackVars cs = do
+  s <- get
+  put $ s+1
+  mapM mkSlackStdForm cs
+  where
+    mkSlackStdForm c = do
+      s <- get
+      put $ s+1
+      return $ IneqSlack c $ Map.singleton (show s) 1
 
-makeSlackVars :: MonadState FreshnessState m
-              => ([IneqStdForm], Equality)
-              -> m ([IneqSlack], EqualitySlack)
-makeSlackVars (cs, f) = undefined -- adopt from simplex-basic
+-- | Most negative coefficient in objective function
+nextBasic :: Equality -> Maybe String
+nextBasic (Equ xs _) =
+  let x = minimumBy (\(_,v) (_,v') -> compare v v') $ Map.toList xs
+  in if snd x < 0
+     then Just $ fst x
+     else Nothing
+
+nextRow :: String -> [IneqSlack] -> Maybe Int
+
+blandRatio :: String -> IneqStdForm -> Maybe Rational
+blandRatio c x = 
 
 type Unrestricted = [Constraint]
 
