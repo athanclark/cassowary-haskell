@@ -1,12 +1,17 @@
 {-# LANGUAGE
     FlexibleContexts
+  , FlexibleInstances
+  , TypeSynonymInstances
+  , MultiParamTypeClasses
   #-}
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
 import Linear.Grammar
+import Linear.Grammar.Class
 
 import Data.List
+import Data.Maybe
 import qualified Data.Map as Map
 import Control.Monad.State
 
@@ -17,6 +22,16 @@ data IneqSlack = IneqSlack
   { slackIneq :: IneqStdForm
   , slackVars :: LinVarMap
   } deriving (Show, Eq)
+
+instance HasVariables IneqSlack LinVarMap where
+  names (IneqSlack x xs) = names x ++ Map.keys xs
+  mapNames f (IneqSlack x xs) = IneqSlack (mapNames f x) $ Map.mapKeys f xs
+  vars (IneqSlack x xs) = vars x `Map.union` xs
+  mapVars f (IneqSlack x xs) = IneqSlack (mapVars f x) $ f xs
+
+instance HasConstant IneqSlack where
+  constVal (IneqSlack x _) = constVal x
+  mapConst f (IneqSlack x xs) = IneqSlack (mapConst f x) xs
 
 data EqualitySlack = EqualitySlack
   { slackEqu :: Equality
@@ -45,9 +60,13 @@ nextBasic (Equ xs _) =
      else Nothing
 
 nextRow :: String -> [IneqSlack] -> Maybe Int
+nextRow col xs = findIndex (\x -> blandRatio col x == Just smallest) xs
+  where
+    smallest = minimum (mapMaybe (blandRatio col) xs)
 
-blandRatio :: String -> IneqStdForm -> Maybe Rational
-blandRatio c x = 
+blandRatio :: String -> IneqSlack -> Maybe Rational
+blandRatio col x = Map.lookup col (vars x) >>=
+  \coeff -> Just $ constVal x / coeff
 
 type Unrestricted = [Constraint]
 
