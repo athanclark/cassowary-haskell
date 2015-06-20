@@ -19,13 +19,13 @@ import Control.Monad.State
 makeSlackVars :: MonadState Integer m
               => [IneqStdForm]
               -> m [IneqStdForm]
-makeSlackVars cs = do
-  s <- get
-  put $ s+1
-  mapM mkSlackStdForm cs
+makeSlackVars = mapM mkSlackStdForm
   where
-    mkSlackStdForm c = do
+    mkSlackStdForm :: MonadState Integer m => IneqStdForm -> m IneqStdForm
+    mkSlackStdForm (EquStd c) = return $ EquStd c
+    mkSlackStdForm (LteStd (Lte (LinVarMap xs) xc)) = do
       s <- get
       put $ s+1
-      return $ mapVars (\(LinVarMap xs) -> LinVarMap $
-        xs `union` Map.singleton (VarSlack $ show s) 1) c
+      return $ EquStd $ Equ (LinVarMap $ xs `union` Map.singleton (VarSlack s) 1) xc
+    mkSlackStdForm (GteStd (Gte (LinVarMap xs) xc)) =
+      mkSlackStdForm $ LteStd $ Lte (LinVarMap $ fmap (* (-1)) xs) $ xc * (-1)

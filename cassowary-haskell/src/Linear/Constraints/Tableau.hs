@@ -1,10 +1,11 @@
 {-# LANGUAGE
     DeriveFunctor
+  , StandaloneDeriving
+  , GeneralizedNewtypeDeriving
   #-}
 
 module Linear.Constraints.Tableau where
 
-import Linear.Constraints.Slack
 import Linear.Grammar
 import Linear.Grammar.Class
 
@@ -13,13 +14,18 @@ import qualified Data.Map as Map
 
 -- * Basic Normal Form
 
-
 newtype BNFTableau a = BNFTableau
-  { unBNFTablaeu :: Map.Map LinVarName a
-  } deriving (Show, Eq, Functor)
+  { unBNFTablaeu :: Map.Map a IneqStdForm
+  } deriving (Show, Eq)
 
-data Tableau a = Tableau
-  { unrestricted :: (BNFTableau a, [a])
-  , restricted   :: (BNFTableau a, [a])
-  , positives    :: [LinVarName]
-  } deriving (Show, Eq, Functor)
+deriving instance (Ord a) => Monoid (BNFTableau a)
+
+data Tableau = Tableau
+  { unrestricted :: (BNFTableau String, [IneqStdForm])
+  , restricted   :: (BNFTableau LinVarName, [IneqStdForm])
+  , urVars       :: [LinVarName]
+  } deriving (Show, Eq)
+
+basicNormalSolution :: BNFTableau a -> Map.Map a Rational
+basicNormalSolution (BNFTableau solutions) =
+  fmap constVal solutions

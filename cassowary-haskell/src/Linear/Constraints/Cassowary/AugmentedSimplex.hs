@@ -66,16 +66,22 @@ substitute col focal target =
     Nothing -> target
 
 -- | Performs a single pivot
-pivot :: ([IneqStdForm], Equality) -> Maybe ([IneqStdForm], Equality)
-pivot (cs,f) = let mCol = nextBasic f
-                   mRow = mCol >>= (`nextRow` cs)
+pivot :: (Tableau, Equality) -> Maybe (Tableau, Equality)
+pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
+  let mCol = nextBasic f
+      mRow = mCol >>= (`nextRow` c_s)
   in case (mCol, mRow) of
-       (Just col, Just row) -> let csPre = take row cs
-                                   csPost = drop (row+1) cs
-                                   focal = flatten col $ cs !! row
-          in Just ( map (substitute col focal) csPre
-                 ++ [focal]
-                 ++ map (substitute col focal) csPost
+       (Just col, Just row) -> let csPre = take row c_s
+                                   csPost = drop (row+1) c_s
+                                   focal = flatten col $ c_s !! row
+                                   focal' = mapMainVars (\(LinVarMap xs) ->
+                                              LinVarMap $ Map.delete col xs) focal
+          in Just ( Tableau c_u
+                      ( BNFTableau $ Map.insert col focal' $
+                          fmap (substitute col focal) basicc_s
+                      , map (substitute col focal) csPre
+                     ++ map (substitute col focal) csPost
+                      ) u
                   , case substitute col focal $ EquStd f of
                       (EquStd x) -> x
                   )
@@ -83,7 +89,7 @@ pivot (cs,f) = let mCol = nextBasic f
 
 
 -- | Simplex optimization
-optimize :: ([IneqStdForm], Equality) -> ([IneqStdForm], Equality)
+optimize :: (Tableau, Equality) -> (Tableau, Equality)
 optimize x = case pivot x of
  Just (cs,f) -> optimize (cs,f)
  Nothing -> x

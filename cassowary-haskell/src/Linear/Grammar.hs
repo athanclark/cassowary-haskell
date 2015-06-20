@@ -96,13 +96,13 @@ multLin (EAdd e1 e2) = EAdd (multLin e1) (multLin e2)
 
 data LinVarName =
     VarMain  String
-  | VarSlack String
+  | VarSlack Integer
   | VarError String
   deriving (Show, Eq, Ord)
 
 instance Arbitrary LinVarName where
   arbitrary = oneof [ VarMain  <$> content
-                    , VarSlack <$> content
+                    , VarSlack <$> arbitrary
                     , VarError <$> content
                     ]
     where
@@ -112,13 +112,13 @@ instance Arbitrary LinVarName where
 
 unLinVarName :: LinVarName -> String
 unLinVarName (VarMain n)  = n
-unLinVarName (VarSlack n) = n
+unLinVarName (VarSlack n) = show n
 unLinVarName (VarError n) = n
 
 mapLinVarName :: (String -> String) -> LinVarName -> LinVarName
 mapLinVarName f (VarMain n)  = VarMain $ f n
-mapLinVarName f (VarSlack n) = VarSlack $ f n
 mapLinVarName f (VarError n) = VarError $ f n
+mapLinVarName _ n = n
 
 
 data LinVar = LinVar
