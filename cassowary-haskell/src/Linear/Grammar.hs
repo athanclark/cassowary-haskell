@@ -97,13 +97,13 @@ multLin (EAdd e1 e2) = EAdd (multLin e1) (multLin e2)
 data LinVarName =
     VarMain  String
   | VarSlack Integer
-  | VarError String
+  | VarError String Bool
   deriving (Show, Eq, Ord)
 
 instance Arbitrary LinVarName where
   arbitrary = oneof [ VarMain  <$> content
                     , VarSlack <$> arbitrary
-                    , VarError <$> content
+                    , liftM2 VarError content arbitrary
                     ]
     where
       content = arbitrary `suchThat` (\x -> length x < 5
@@ -113,11 +113,12 @@ instance Arbitrary LinVarName where
 unLinVarName :: LinVarName -> String
 unLinVarName (VarMain n)  = n
 unLinVarName (VarSlack n) = show n
-unLinVarName (VarError n) = n
+unLinVarName (VarError n b) = if b then "error_" ++ n ++ "_+"
+                                   else "error_" ++ n ++ "_-"
 
 mapLinVarName :: (String -> String) -> LinVarName -> LinVarName
 mapLinVarName f (VarMain n)  = VarMain $ f n
-mapLinVarName f (VarError n) = VarError $ f n
+mapLinVarName f (VarError n b) = VarError (f n) b
 mapLinVarName _ n = n
 
 
@@ -346,9 +347,9 @@ instance Arbitrary GInequality where
       isUniquelyNamed = hasNoDups . names
 
 data IneqStdForm =
-    EquStd Equality
-  | LteStd LInequality
-  | GteStd GInequality
+    EquStd {unEquStd :: Equality}
+  | LteStd {unLteStd :: LInequality}
+  | GteStd {unGteStd :: GInequality}
   deriving (Show, Eq)
 
 instance HasVariables IneqStdForm LinVarMap where

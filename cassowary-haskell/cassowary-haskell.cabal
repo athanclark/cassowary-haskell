@@ -16,10 +16,12 @@ Library
   Exposed-Modules:      Linear.Grammar
                         Linear.Grammar.Class
                         Linear.Constraints.Slack
+                        Linear.Constraints.Error
                         Linear.Constraints.Class
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
                         Linear.Constraints.Tableau
+                        Sets.Class
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers

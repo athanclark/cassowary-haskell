@@ -23,7 +23,7 @@ deriving instance (Ord a) => Monoid (BNFTableau a)
 data Tableau = Tableau
   { unrestricted :: (BNFTableau String, [IneqStdForm])
   , restricted   :: (BNFTableau LinVarName, [IneqStdForm])
-  , urVars       :: [LinVarName]
+  , urVars       :: [String]
   } deriving (Show, Eq)
 
 basicNormalSolution :: BNFTableau a -> Map.Map a Rational
