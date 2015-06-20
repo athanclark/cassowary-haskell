@@ -1,8 +1,3 @@
-{-# LANGUAGE
-    DeriveFunctor
-  , TupleSections
-  #-}
-
 module Linear.Constraints.Error where
 
 import Linear.Constraints.Tableau

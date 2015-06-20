@@ -3,8 +3,12 @@ module Linear.GrammarSpec (main, spec) where
 import Linear.Grammar
 import Linear.Grammar.Class
 
+import qualified Data.Map as Map
+
+import Data.List hiding (union)
 import Test.Hspec
 import Test.QuickCheck
+
 
 main :: IO ()
 main = hspec spec
@@ -19,9 +23,7 @@ spec = do
   describe "LinVar" $
     it "should generate non-empty variable names" $
       property prop_linVar_notNull
-  describe "LinExpr" $ do
-    it "should generate unique variable names" $
-      property prop_linExpr_uniquelyNamed
+  describe "LinExpr" $
     it "`removeDupLin` should be idempotent" $
       property prop_removeDup_Idempotency
   describe "IneqStdForm" $
@@ -35,8 +37,8 @@ prop_multReduction_Idempotency :: LinAst -> Bool
 prop_multReduction_Idempotency x = multLin x == multLin (multLin x)
 
 prop_addMutation_NonForgetful :: LinAst -> Bool
-prop_addMutation_NonForgetful x = length (exprVars $ addLin $ multLin x)
-                               == length (astVars $ multLin x)
+prop_addMutation_NonForgetful x = Map.size (unLinVarMap $ exprVars $ addLin $ multLin x)
+                               == length (nub $ astVars $ multLin x)
   where
     astVars :: LinAst -> [String]
     astVars (EVar n) = [n]
@@ -45,10 +47,9 @@ prop_addMutation_NonForgetful x = length (exprVars $ addLin $ multLin x)
     astVars (EAdd e1 e2) = astVars e1 ++ astVars e2
 
 prop_linVar_notNull :: LinVar -> Bool
-prop_linVar_notNull x = not $ null $ varName x
-
-prop_linExpr_uniquelyNamed :: LinExpr -> Bool
-prop_linExpr_uniquelyNamed x = hasNoDups $ map varName $ exprVars x
+prop_linVar_notNull (LinVar (VarMain n) _) = not $ null n
+prop_linVar_notNull (LinVar (VarError n _) _) = not $ null n
+prop_linVar_notNull _ = True
 
 prop_removeDup_Idempotency :: LinExpr -> Bool
 prop_removeDup_Idempotency x = removeDupLin x == removeDupLin (removeDupLin x)
