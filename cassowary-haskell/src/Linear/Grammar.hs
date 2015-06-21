@@ -1,6 +1,5 @@
 {-# LANGUAGE
     MultiParamTypeClasses
-  , FunctionalDependencies
   , TypeSynonymInstances
   , FlexibleInstances
   , StandaloneDeriving
@@ -13,7 +12,6 @@ import Linear.Grammar.Class
 import Sets.Class
 
 import Data.Char
-import Data.List hiding (union)
 import Data.String
 import qualified Data.Set as Set
 import qualified Data.Map as Map
@@ -102,7 +100,7 @@ data LinVarName =
 
 instance Arbitrary LinVarName where
   arbitrary = oneof [ VarMain  <$> content
-                    , VarSlack <$> arbitrary
+                    , VarSlack <$> arbitrary `suchThat` (<= 1000)
                     , liftM2 VarError content arbitrary
                     ]
     where
@@ -178,8 +176,7 @@ instance HasCoefficients LinVarMap where
     in LinVarMap $ Map.fromList $ zip ks $ f vs
 
 instance Arbitrary LinVarMap where
-  arbitrary = (LinVarMap . Map.fromList) <$> arbitrary
-
+  arbitrary = (LinVarMap . Map.fromList) <$> arbitrary `suchThat` (\x -> length x <= 100)
 
 -- | Linear expressions suited for normal and standard form.
 data LinExpr = LinExpr
@@ -215,24 +212,18 @@ addLin = go (LinExpr (LinVarMap Map.empty) 0)
   where
     go :: LinExpr -> LinAst -> LinExpr
     go (LinExpr (LinVarMap vs) c) (EVar n) =
-      LinExpr (LinVarMap $ Map.insert (VarMain n) 1 vs) c
+      LinExpr (LinVarMap $ maybe (Map.insert (VarMain n) 1 vs)
+                                 (\coeff -> Map.insert (VarMain n) (coeff + 1) vs) $
+                                 Map.lookup (VarMain n) vs) c
     go (LinExpr vs c) (ELit x) = LinExpr vs (c + x)
     go (LinExpr (LinVarMap vs) c) (ECoeff (EVar n) x) =
-      LinExpr (LinVarMap $ Map.insert (VarMain n) x vs) c
+      LinExpr (LinVarMap $ maybe (Map.insert (VarMain n) 1 vs)
+                                 (\coeff -> Map.insert (VarMain n) (coeff + x) vs) $
+                                 Map.lookup (VarMain n) vs) c
     go le (EAdd e1 e2) = mergeLinExpr (go le e1) (go le e2)
 
--- | Merged duplicate @LinVar@s in a @LinExpr@. Should be used /after/ @addLin@.
-removeDupLin :: LinExpr -> LinExpr
-removeDupLin (LinExpr (LinVarMap vs) c) = LinExpr (LinVarMap $ foldr go Map.empty $ Map.toList vs) c
-  where
-    go :: (LinVarName, Rational) -> Map.Map LinVarName Rational -> Map.Map LinVarName Rational
-    go (n, x) acc | acc == Map.empty = Map.singleton n x
-                  | otherwise = case Map.lookup n acc of
-      Just y -> Map.update (\x -> Just $ y + x) n acc
-      Nothing -> Map.insert n x acc
-
 makeLinExpr :: LinAst -> LinExpr
-makeLinExpr = removeDupLin . addLin . multLin
+makeLinExpr = addLin . multLin
 
 -- * Linear Inequalities
 
@@ -407,13 +398,13 @@ standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
   | ys == mempty = EquExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
   | otherwise =
       let ys' = mapCoeffs (map ((-1) *)) ys
-      in EquExpr (removeDupLin $ LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
+      in EquExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
 standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
   | xs == mempty = LteExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
   | ys == mempty = LteExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
   | otherwise =
       let ys' = mapCoeffs (map ((-1) *)) ys
-      in LteExpr (removeDupLin $ LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
+      in LteExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
 
 
 hasNoDups :: (Ord a) => [a] -> Bool

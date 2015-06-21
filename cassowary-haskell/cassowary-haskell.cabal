@@ -18,9 +18,9 @@ Library
                         Linear.Constraints.Slack
                         Linear.Constraints.Error
                         Linear.Constraints.Class
+                        Linear.Constraints.Tableau
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
-                        Linear.Constraints.Tableau
                         Sets.Class
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
