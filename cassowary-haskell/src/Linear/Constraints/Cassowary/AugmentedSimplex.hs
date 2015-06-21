@@ -47,10 +47,11 @@ blandRatio col x = Map.lookup col (unLinVarMap $ mainVars x) >>=
 
 -- | Orients equation over some (existing) variable
 flatten :: ( HasCoefficients a
+           , HasConstant a
            , HasMainVars a
            ) => LinVarName -> a -> a
 flatten col x = case Map.lookup col $ unLinVarMap $ mainVars x of
-  Just y -> mapCoeffs (map (/ y)) x
+  Just y -> mapConst (/ y) $ mapCoeffs (map (/ y)) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
 substitute :: ( HasMainVars a
