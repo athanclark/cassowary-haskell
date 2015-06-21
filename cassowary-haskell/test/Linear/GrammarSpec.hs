@@ -9,8 +9,6 @@ import Test.Tasty
 import Test.Tasty.QuickCheck as QC
 import Test.QuickCheck
 
-import Debug.Trace
-
 
 grammarSpec :: TestTree
 grammarSpec = testGroup "Linear.Grammar"
@@ -31,10 +29,10 @@ grammarSpec = testGroup "Linear.Grammar"
   ]
 
 prop_multReduction_Idempotency :: LinAst -> Bool
-prop_multReduction_Idempotency x = traceShow x $ multLin x == multLin (multLin x)
+prop_multReduction_Idempotency x = multLin x == multLin (multLin x)
 
 prop_addMutation_NonForgetful :: LinAst -> Bool
-prop_addMutation_NonForgetful x = traceShow x $ Map.size (unLinVarMap $ exprVars $ addLin $ multLin x)
+prop_addMutation_NonForgetful x = Map.size (unLinVarMap $ exprVars $ addLin $ multLin x)
                                == length (nub $ astVars $ multLin x)
   where
     astVars :: LinAst -> [String]
@@ -49,4 +47,4 @@ prop_linVar_notNull (LinVar (VarError n _) _) = not $ null n
 prop_linVar_notNull _ = True
 
 prop_standardize_Idempotency :: IneqExpr -> Bool
-prop_standardize_Idempotency x = traceShow x $ standardize x == standardize (standardize x)
+prop_standardize_Idempotency x = standardize x == standardize (standardize x)

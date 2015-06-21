@@ -1,15 +1,10 @@
 {-# LANGUAGE
-    TypeSynonymInstances
-  , FlexibleContexts
-  , FlexibleInstances
-  , MultiParamTypeClasses
-  , DeriveFunctor
+    FlexibleContexts
   #-}
 
 module Linear.Constraints.Slack where
 
 import Linear.Grammar
-import Linear.Grammar.Class
 import Sets.Class
 
 import qualified Data.Map as Map

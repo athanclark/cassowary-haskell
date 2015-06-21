@@ -54,7 +54,7 @@ instance Arbitrary LinAst where
     , ELit <$> between1000Rational
     , liftM2 ECoeff arbitrary between1000Rational
     , liftM2 EAdd arbitrary arbitrary
-    ] `suchThat` (\x -> nodeCount x < 100)
+    ] `suchThat` (\x -> nodeCount x < 1000)
     where
       nodeCount :: LinAst -> Integer
       nodeCount (EVar _) = 1
@@ -66,7 +66,6 @@ instance Arbitrary LinAst where
                                          && not (null x)
                                          && all isAlpha x)
 
--- | Doesn't solve the ridde, but it helps.
 instance IsString LinAst where
   fromString = EVar
 
@@ -168,7 +167,8 @@ instance HasCoefficients LinVarMap where
     in LinVarMap $ Map.fromList $ zip ks $ f vs
 
 instance Arbitrary LinVarMap where
-  arbitrary = LinVarMap <$> arbitrary `suchThat` (\x -> Map.size x <= 10)
+  arbitrary = LinVarMap <$> arbitrary `suchThat`
+    (\x -> Map.size x <= 100 && Map.size x > 0)
 
 -- * Expressions
 

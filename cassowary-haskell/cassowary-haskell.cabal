@@ -39,6 +39,8 @@ Test-Suite spec
   Main-Is:              Main.hs
   Build-Depends:        base
                       , containers
+                      , mtl
+                      , transformers
                       , tasty
                       , tasty-quickcheck
                       , QuickCheck
