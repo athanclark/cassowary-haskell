@@ -34,9 +34,13 @@ nextRow :: ( HasConstant a
            , HasMainVars a
            ) => LinVarName -> [a] -> Maybe Int
 nextRow _ [] = Nothing
-nextRow col xs = elemIndex smallest $ map (blandRatio col) xs
+nextRow col xs = case smallest of
+  Nothing -> Nothing
+  Just s -> elemIndex (Just s) $ map (blandRatio col) xs
   where
-    smallest = minimum <$> traverse (blandRatio col) xs
+    smallest = case mapMaybe (blandRatio col) xs of
+      [] -> Nothing
+      xs' -> Just $ minimum xs'
 
 -- | Using Bland's method.
 blandRatio :: ( HasConstant a
@@ -63,8 +67,19 @@ substitute col focal target =
     Just coeff -> let focal' = mapCoeffs (map (\x -> x * coeff * (-1))) focal
                       go (LinVarMap xs) = let xs' = Map.unionWith (+) xs (unLinVarMap $ mainVars focal')
                                           in LinVarMap $ Map.filter (/= 0) xs'
-                  in mapConst (* coeff) $ mapMainVars go target
+                  in mapConst (\x -> x - constVal focal' * coeff) $ mapMainVars go target
     Nothing -> target
+
+
+f1 = EVar "x" .+. EVar "y" .+. EVar "z" .<=. ELit 600
+f2 = EVar "x" .+. (3 :: Rational) .*. EVar "y" .<=. ELit 600
+f3 = (2 :: Rational) .*. EVar "x" .+. EVar "z" .<=. ELit 900
+obj = EVar "M" .==. (60 :: Rational) .*. EVar "x" .+. (90 :: Rational) .*. EVar "y"
+      .+. (300 :: Rational) .*. EVar "z"
+t = (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
+(Tableau _ (c_s,_) _,obj') = simplexPrimal t
+s = fromJust $ Map.lookup (VarMain "M") $ unLinVarMap $ vars obj'
+
 
 -- | Performs a single pivot
 pivot :: (Tableau, Equality) -> Maybe (Tableau, Equality)
@@ -83,14 +98,14 @@ pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
                       , map (substitute col focal) csPre
                      ++ map (substitute col focal) csPost
                       ) u
-                  , case substitute col focal $ EquStd f of
-                      (EquStd x) -> x
+                  , unEquStd $ substitute col focal $ EquStd f
                   )
        _ -> Nothing
 
 
 -- | Simplex optimization
-optimize :: (Tableau, Equality) -> (Tableau, Equality)
-optimize x = case pivot x of
- Just (cs,f) -> optimize (cs,f)
- Nothing -> x
+simplexPrimal :: (Tableau, Equality) -> (Tableau, Equality)
+simplexPrimal x =
+  case pivot x of
+    Just (cs,f) -> simplexPrimal (cs,f)
+    Nothing -> x

@@ -5,19 +5,32 @@ import Linear.Grammar
 import Linear.Constraints.Slack
 import Linear.Constraints.Tableau
 import Linear.Constraints.Class
+import Sets.Class
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import Data.Maybe
 
 import Test.Tasty
 import Test.Tasty.QuickCheck as QC
+import Test.Tasty.HUnit
 import Test.QuickCheck
+
+import Debug.Trace
 
 
 cassowarySpec :: TestTree
 cassowarySpec = testGroup "Linear.Constraints.Cassowary"
-  [ QC.testProperty "`flatten` is non-destructive"
-      prop_flatten_nonDestroy
+  [ testGroup "`flatten`"
+    [ QC.testProperty "is non-destructive" prop_flatten_nonDestroy
+    , QC.testProperty "is idempotent" prop_flatten_idemp
+    , QC.testProperty "results in 1" prop_flatten_1
+    ]
+  , testGroup "`substitute`"
+    [ QC.testProperty "on self should result in all 0s" prop_substitute_self0
+    , QC.testProperty "results in 0 for any target" prop_substitute_any0
+    ]
+  , unitTests
   ]
 
 newtype IneqStdFormWithMember = IneqStdFormWithMember
@@ -33,3 +46,94 @@ instance Arbitrary IneqStdFormWithMember where
 prop_flatten_nonDestroy :: IneqStdFormWithMember -> Bool
 prop_flatten_nonDestroy (IneqStdFormWithMember (n,x)) =
   Map.size (unLinVarMap $ mainVars x) == Map.size (unLinVarMap $ mainVars $ flatten n x)
+
+prop_flatten_idemp :: IneqStdFormWithMember -> Bool
+prop_flatten_idemp (IneqStdFormWithMember (n,x)) =
+  flatten n x == flatten n (flatten n x)
+
+prop_flatten_1 :: IneqStdFormWithMember -> Bool
+prop_flatten_1 (IneqStdFormWithMember (n,x)) =
+  case Map.lookup n $ unLinVarMap $ mainVars $ flatten n x of
+    Nothing -> False
+    Just 1 -> True
+    Just _ -> False
+
+prop_substitute_self0 :: IneqStdFormWithMember -> Bool
+prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
+  null $ coeffVals $ substitute n (flatten n x) (flatten n x)
+
+prop_substitute_any0 :: IneqStdFormWithMember -> IneqStdForm -> Bool
+prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
+  case Map.lookup n $ unLinVarMap $ mainVars $ substitute n (flatten n x) y of
+    Nothing -> True
+    Just _ -> False
+
+unitTests :: TestTree
+unitTests = testGroup "Unit Tests"
+  [ testCase "should pass Finite Mathematics Lesson 4, Example 1" $
+      let f1 = EVar "x" .+. EVar "y" .+. EVar "z" .<=. ELit 600
+          f2 = EVar "x" .+. (3 :: Rational) .*. EVar "y" .<=. ELit 600
+          f3 = (2 :: Rational) .*. EVar "x" .+. EVar "z" .<=. ELit 900
+          obj = EVar "M" .==. (60 :: Rational) .*. EVar "x" .+. (90 :: Rational) .*. EVar "y"
+                .+. (300 :: Rational) .*. EVar "z"
+          t@(Tableau _ (c_s,_) _,obj') = simplexPrimal
+            (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
+          rs = remainingBasics t
+      in
+      rs `union` Map.mapKeys unLinVarName (basicFeasibleSolution c_s) @?=
+      Map.fromList [("M",180000),("z",600),("1",600),("2",300)]
+  , testCase "should pass Finite Mathematics Lesson 4, Example 2" $
+      let f1 = EVar "a" .+. EVar "b" .+. EVar "c" .<=. ELit 100
+          f2 = (5 :: Rational) .*. EVar "a" .+. (4 :: Rational) .*. EVar "b"
+               .+. (4 :: Rational) .*. EVar "c" .<=. ELit 480
+          f3 = (40 :: Rational) .*. EVar "a" .+. (20 :: Rational) .*. EVar "b"
+               .+. (30 :: Rational) .*. EVar "c" .<=. ELit 3200
+          obj = EVar "M" .==. (70 :: Rational) .*. EVar "a" .+. (210 :: Rational) .*. EVar "b"
+                .+. (140 :: Rational) .*. EVar "c"
+          t@(Tableau _ (c_s,_) _,obj') = simplexPrimal
+            (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
+          rs = remainingBasics t
+      in
+      -- traceShow t $
+      rs `union` Map.mapKeys unLinVarName (basicFeasibleSolution c_s) @?=
+      Map.fromList [("M",21000),("b",100),("1",80),("2",1200)]
+  , testCase "should pass Example of Simplex Procedure" $
+      let f1 = (2 :: Rational) .*. EVar "x1" .+. EVar "x2" .+. EVar "x3" .<=. ELit 14
+          f2 = (4 :: Rational) .*. EVar "x1" .+. (2 :: Rational) .*. EVar "x2"
+               .+. (3 :: Rational) .*. EVar "x3" .<=. ELit 28
+          f3 = (2 :: Rational) .*. EVar "x1" .+. (5 :: Rational) .*. EVar "x2"
+               .+. (5 :: Rational) .*. EVar "x3" .<=. ELit 30
+          obj = EVar "Z" .==. EVar "x1" .+. (2 :: Rational) .*. EVar "x2"
+                .+. (-1 :: Rational) .*. EVar "x3"
+          t@(Tableau _(c_s,_) _,obj') = simplexPrimal
+            (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
+          rs = remainingBasics t
+      in
+      traceShow t $
+      rs `union` Map.mapKeys unLinVarName (basicFeasibleSolution c_s) @?=
+      Map.fromList [("Z",13),("x1",5),("x2",4)]
+  ]
+
+-- foo = Tableau { unrestricted = (BNFTableau {unBNFTablaeu = fromList []},[])
+--               , restricted = (BNFTableau {unBNFTablaeu = fromList
+--                              [ (VarMain "z",EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
+--                                             [(VarMain "x",1 % 1),(VarMain "y",1 % 1),(VarSlack 0,1 % 1)]}) (600 % 1)})]}
+--                   , [ EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
+--                              [(VarMain "x",1 % 1),(VarMain "y",3 % 1),(VarSlack 1,1 % 1)]}) (600 % 1)}
+--                     , EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
+--                              [(VarMain "x",1 % 1),(VarMain "y",(-1) % 1),(VarSlack 0,(-1) % 1),(VarSlack 2,1 % 1)]}) (300 % 1)}])
+--               , urVars = []}
+--       , Equ (LinVarMap {unLinVarMap = fromList [(VarMain "M",1 % 1),(VarMain "x",240 % 1)
+--                                                ,(VarMain "y",210 % 1),(VarSlack 0,300 % 1)]}) (180000 % 1))
+
+-- foo = Tableau { unrestricted = (BNFTableau {unBNFTablaeu = fromList []},[])
+--               , restricted = (BNFTableau {unBNFTablaeu = fromList
+--                   [ (VarMain "x1",EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
+--                                 [(VarSlack 0,5 % 8),(VarSlack 2,(-1) % 8)]}) (5 % 1)})
+--                   , (VarMain "x2",EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
+--                                 [(VarMain "x3",1 % 1),(VarSlack 0,(-1) % 4),(VarSlack 2,1 % 4)]}) (4 % 1)})]}
+--               , [ EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
+--                          [(VarMain "x3",1 % 1),(VarSlack 0,(-2) % 1),(VarSlack 1,1 % 1)]}) (0 % 1)}])
+--               , urVars = []}
+--       , Equ (LinVarMap {unLinVarMap = fromList [(VarMain "Z",1 % 1),(VarMain "x3",3 % 1)
+--                                                ,(VarSlack 0,1 % 8),(VarSlack 2,3 % 8)]}) (13 % 1))
