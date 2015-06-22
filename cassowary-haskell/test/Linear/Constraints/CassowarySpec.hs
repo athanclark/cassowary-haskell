@@ -2,21 +2,16 @@ module Linear.Constraints.CassowarySpec where
 
 import Linear.Constraints.Cassowary
 import Linear.Grammar
-import Linear.Constraints.Slack
 import Linear.Constraints.Tableau
 import Linear.Constraints.Class
 import Sets.Class
 
-import qualified Data.Set as Set
 import qualified Data.Map as Map
-import Data.Maybe
 
 import Test.Tasty
 import Test.Tasty.QuickCheck as QC
 import Test.Tasty.HUnit
 import Test.QuickCheck
-
-import Debug.Trace
 
 
 cassowarySpec :: TestTree
@@ -76,7 +71,7 @@ unitTests = testGroup "Unit Tests"
           f3 = (2 :: Rational) .*. EVar "x" .+. EVar "z" .<=. ELit 900
           obj = EVar "M" .==. (60 :: Rational) .*. EVar "x" .+. (90 :: Rational) .*. EVar "y"
                 .+. (300 :: Rational) .*. EVar "z"
-          t@(Tableau _ (c_s,_) _,obj') = simplexPrimal
+          t@(Tableau _ (c_s,_) _,_) = simplexPrimal
             (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
           rs = remainingBasics t
       in
@@ -90,7 +85,7 @@ unitTests = testGroup "Unit Tests"
                .+. (30 :: Rational) .*. EVar "c" .<=. ELit 3200
           obj = EVar "M" .==. (70 :: Rational) .*. EVar "a" .+. (210 :: Rational) .*. EVar "b"
                 .+. (140 :: Rational) .*. EVar "c"
-          t@(Tableau _ (c_s,_) _,obj') = simplexPrimal
+          t@(Tableau _ (c_s,_) _,_) = simplexPrimal
             (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
           rs = remainingBasics t
       in
@@ -105,35 +100,10 @@ unitTests = testGroup "Unit Tests"
                .+. (5 :: Rational) .*. EVar "x3" .<=. ELit 30
           obj = EVar "Z" .==. EVar "x1" .+. (2 :: Rational) .*. EVar "x2"
                 .+. (-1 :: Rational) .*. EVar "x3"
-          t@(Tableau _(c_s,_) _,obj') = simplexPrimal
+          t@(Tableau _(c_s,_) _,_) = simplexPrimal
             (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
           rs = remainingBasics t
       in
-      traceShow t $
       rs `union` Map.mapKeys unLinVarName (basicFeasibleSolution c_s) @?=
       Map.fromList [("Z",13),("x1",5),("x2",4)]
   ]
-
--- foo = Tableau { unrestricted = (BNFTableau {unBNFTablaeu = fromList []},[])
---               , restricted = (BNFTableau {unBNFTablaeu = fromList
---                              [ (VarMain "z",EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
---                                             [(VarMain "x",1 % 1),(VarMain "y",1 % 1),(VarSlack 0,1 % 1)]}) (600 % 1)})]}
---                   , [ EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
---                              [(VarMain "x",1 % 1),(VarMain "y",3 % 1),(VarSlack 1,1 % 1)]}) (600 % 1)}
---                     , EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
---                              [(VarMain "x",1 % 1),(VarMain "y",(-1) % 1),(VarSlack 0,(-1) % 1),(VarSlack 2,1 % 1)]}) (300 % 1)}])
---               , urVars = []}
---       , Equ (LinVarMap {unLinVarMap = fromList [(VarMain "M",1 % 1),(VarMain "x",240 % 1)
---                                                ,(VarMain "y",210 % 1),(VarSlack 0,300 % 1)]}) (180000 % 1))
-
--- foo = Tableau { unrestricted = (BNFTableau {unBNFTablaeu = fromList []},[])
---               , restricted = (BNFTableau {unBNFTablaeu = fromList
---                   [ (VarMain "x1",EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
---                                 [(VarSlack 0,5 % 8),(VarSlack 2,(-1) % 8)]}) (5 % 1)})
---                   , (VarMain "x2",EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
---                                 [(VarMain "x3",1 % 1),(VarSlack 0,(-1) % 4),(VarSlack 2,1 % 4)]}) (4 % 1)})]}
---               , [ EquStd {unEquStd = Equ (LinVarMap {unLinVarMap = fromList
---                          [(VarMain "x3",1 % 1),(VarSlack 0,(-2) % 1),(VarSlack 1,1 % 1)]}) (0 % 1)}])
---               , urVars = []}
---       , Equ (LinVarMap {unLinVarMap = fromList [(VarMain "Z",1 % 1),(VarMain "x3",3 % 1)
---                                                ,(VarSlack 0,1 % 8),(VarSlack 2,3 % 8)]}) (13 % 1))

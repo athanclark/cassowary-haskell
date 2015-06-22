@@ -7,16 +7,13 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
-import Linear.Constraints.Slack
 import Linear.Constraints.Class
 import Linear.Constraints.Tableau
 import Linear.Grammar
-import Linear.Grammar.Class
 
 import Data.List
 import Data.Maybe
 import qualified Data.Map as Map
-import Control.Monad.State
 
 
 -- * Bland's Rule
@@ -71,16 +68,6 @@ substitute col focal target =
     Nothing -> target
 
 
-f1 = EVar "x" .+. EVar "y" .+. EVar "z" .<=. ELit 600
-f2 = EVar "x" .+. (3 :: Rational) .*. EVar "y" .<=. ELit 600
-f3 = (2 :: Rational) .*. EVar "x" .+. EVar "z" .<=. ELit 900
-obj = EVar "M" .==. (60 :: Rational) .*. EVar "x" .+. (90 :: Rational) .*. EVar "y"
-      .+. (300 :: Rational) .*. EVar "z"
-t = (makeRestrictedTableau [f1,f2,f3], unEquStd $ standardForm obj)
-(Tableau _ (c_s,_) _,obj') = simplexPrimal t
-s = fromJust $ Map.lookup (VarMain "M") $ unLinVarMap $ vars obj'
-
-
 -- | Performs a single pivot
 pivot :: (Tableau, Equality) -> Maybe (Tableau, Equality)
 pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
@@ -109,3 +96,9 @@ simplexPrimal x =
   case pivot x of
     Just (cs,f) -> simplexPrimal (cs,f)
     Nothing -> x
+
+simplexDual :: (Tableau, Equality) -> (Tableau, Equality)
+simplexDual = transposeTab . simplexPrimal . transposeTab
+
+transposeTab :: (Tableau, Equality) -> (Tableau, Equality)
+transposeTab = undefined

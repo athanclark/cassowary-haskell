@@ -1,7 +1,6 @@
 module Linear.Constraints.Class where
 
 import Linear.Grammar
-import Linear.Grammar.Class
 
 
 class HasMainVars a where

@@ -11,13 +11,9 @@ import Linear.Constraints.Class
 import Linear.Grammar
 
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import Data.List (nub)
 import Data.Maybe
 import Control.Monad.State
-import Control.Arrow
-
-import Debug.Trace
 
 
 newtype BNFTableau a = BNFTableau
