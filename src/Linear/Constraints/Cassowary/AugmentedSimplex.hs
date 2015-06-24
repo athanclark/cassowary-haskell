@@ -13,7 +13,7 @@ import Linear.Constraints.Class
 import Linear.Constraints.Tableau
 import Linear.Grammar
 
-import Data.List
+import Data.List (elemIndex)
 import Data.Maybe
 import Data.Monoid
 import Data.Foldable
