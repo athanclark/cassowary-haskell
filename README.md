@@ -70,8 +70,8 @@ form, but just as an example:
 
 `3x + 4y - 3z <= 3`
 
-Our grammatical data structure sees this as simply a list of varaibles with their
-coefficients, and the constant - isomorphic to `([(String, Rational)], Rational)`
+Our grammatical data structure sees this as simply a list of variables with their
+coefficients summed together, and the constant - isomorphic to `([(String, Rational)], Rational)`
 for each inequality operator. This makes everything much more simple to work with.
 
 > Our implementation actually uses `Map String Rational` for log(n) lookups, and
@@ -97,9 +97,9 @@ form of the constraint set successively, through pivots.
 An equation with a basic variable in a constraint set should be the only equation
 with that variable - "basic" variables are just unique in the set. Simplex successively
 solves the system of equations by refactoring the constraint set, making new basic
-variables with each pivot, isolating definitions for those basic varaibles. At the
+variables with each pivot, isolating definitions for those basic variables. At the
 same time, it's finding a successively more optimal basic-feasible solution, where
-each basic varaible is assigned the constant in their equation. This is how (primal) simplex
+each basic variable is assigned the constant in their equation. This is how (primal) simplex
 finds the optimal (maximum) solution for a constraint set: It refactors the set, creating
 basic variables, then takes the simplest substitution - each constant as the value for the
 basic variables, and all others become zero. This "walks" the feasible region's corners
@@ -132,13 +132,13 @@ Cassowary aims to _minimize_ changes, while primal simplex tries to _maximize_ v
 in a constraint set. Therefore, we need to take the dual approach to simplex, which
 is primal simplex on the transpose of the dual.
 
-To transpose a constrant set, we need to invert the tableau. In primal simplex, we
+To transpose a constraint set, we need to invert the tableau. In primal simplex, we
 have an objective function (standard form linear equation) we want to maximize over a
-constraint set, where each equation in the set has a unique slack varaible, uses a
+constraint set, where each equation in the set has a unique slack variable, uses a
 common set of main variable names, and has a constant value. The inverse turns all
 slack variables into common main variables, and leaves the old main variables as unique
 slack variables in the new equation. Likewise, the constants for each equation become
-the coefficients for each (slack) variable in the objective funciton, and those old
+the coefficients for each (slack) variable in the objective function, and those old
 coefficients become the new constants for the transpose.
 
 After you have a transposed tableau, then you just run simplex primal on it, then
@@ -160,7 +160,7 @@ Bland's rule is the technique simplex uses when deciding which variable should b
 as the next basic variable to pivot on. Basically, it's theory is that the "most negative"
 coefficient in the objective function should be made as the next corner to walk on.
 
-However, we want weights for our constraints, chosing more strong constraints over
+However, we want weights for our constraints, choosing more strong constraints over
 weaker ones, in a method we declare.
 
 We do this with a natural-number analogue - `0` represents required constraints,

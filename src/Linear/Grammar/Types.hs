@@ -22,9 +22,11 @@ import Test.QuickCheck.Instances ()
 
 -- * Classes
 
-class HasVariables a where
+class HasNames a where
   names :: a -> [String]
   mapNames :: (String -> String) -> a -> a
+
+class HasVariables a where
   vars :: a -> LinVarMap
   mapVars :: (LinVarMap -> LinVarMap) -> a -> a
 
@@ -46,7 +48,7 @@ data LinAst =
   | EAdd LinAst LinAst
   deriving (Show, Eq)
 
-instance HasVariables LinAst where
+instance HasNames LinAst where
   names (EVar n) = [n]
   names (ELit _) = []
   names (ECoeff e _) = names e
@@ -129,9 +131,11 @@ data LinVar = LinVar
   , varCoeff :: Rational
   } deriving (Show, Eq)
 
-instance HasVariables LinVar where
+instance HasNames LinVar where
   names (LinVar n _) = [unLinVarName n]
   mapNames f (LinVar n c) = LinVar (mapLinVarName f n) c
+
+instance HasVariables LinVar where
   vars (LinVar n c) = LinVarMap $ Map.singleton n c
   mapVars f x = uncurry LinVar $ head $ Map.toList $ unLinVarMap $ f $ vars x
 
@@ -162,9 +166,11 @@ deriving instance HasUnion LinVarMap
 deriving instance HasIntersection LinVarMap
 deriving instance HasDifference LinVarMap
 
-instance HasVariables LinVarMap where
+instance HasNames LinVarMap where
   names (LinVarMap x) = unLinVarName <$> Map.keys x
   mapNames f (LinVarMap x) = LinVarMap $ Map.mapKeys (mapLinVarName f) x
+
+instance HasVariables LinVarMap where
   vars = id
   mapVars = ($)
 
@@ -186,9 +192,11 @@ data LinExpr = LinExpr
   , exprConst  :: Rational
   } deriving (Show, Eq)
 
-instance HasVariables LinExpr where
+instance HasNames LinExpr where
   names (LinExpr xs _) = names xs
   mapNames f (LinExpr xs xc) = LinExpr (mapNames f xs) xc
+
+instance HasVariables LinExpr where
   vars (LinExpr xs _) = xs
   mapVars f (LinExpr xs xc) = LinExpr (f xs) xc
 
@@ -215,11 +223,13 @@ data IneqExpr =
   | LteExpr LinExpr LinExpr
   deriving (Show, Eq)
 
-instance HasVariables IneqExpr where
+instance HasNames IneqExpr where
   names (EquExpr x y) = names x ++ names y
   names (LteExpr x y) = names x ++ names y
   mapNames f (EquExpr x y) = EquExpr (mapNames f x) (mapNames f y)
   mapNames f (LteExpr x y) = LteExpr (mapNames f x) (mapNames f y)
+
+instance HasVariables IneqExpr where
   vars (EquExpr x y) = vars x `union` vars y
   vars (LteExpr x y) = vars x `union` vars y
   mapVars f (EquExpr x y) = EquExpr (mapVars f x) (mapVars f y)
@@ -242,9 +252,11 @@ instance Arbitrary IneqExpr where
 data Equality = Equ LinVarMap Rational
   deriving (Show, Eq)
 
-instance HasVariables Equality where
+instance HasNames Equality where
   names (Equ xs _) = names xs
   mapNames f (Equ xs xc) = Equ (mapNames f xs) xc
+
+instance HasVariables Equality where
   vars (Equ xs _) = xs
   mapVars f (Equ xs xc) = Equ (mapVars f xs) xc
 
@@ -262,9 +274,11 @@ instance Arbitrary Equality where
 data LInequality = Lte LinVarMap Rational
   deriving (Show, Eq)
 
-instance HasVariables LInequality where
+instance HasNames LInequality where
   names (Lte xs _) = names xs
   mapNames f (Lte xs xc) = Lte (mapNames f xs) xc
+
+instance HasVariables LInequality where
   vars (Lte xs _) = xs
   mapVars f (Lte xs xc) = Lte (mapVars f xs) xc
 
@@ -282,9 +296,11 @@ instance Arbitrary LInequality where
 data GInequality = Gte LinVarMap Rational
   deriving (Show, Eq)
 
-instance HasVariables GInequality where
+instance HasNames GInequality where
   names (Gte xs _) = names xs
   mapNames f (Gte xs xc) = Gte (mapNames f xs) xc
+
+instance HasVariables GInequality where
   vars (Gte xs _) = xs
   mapVars f (Gte xs xc) = Gte (mapVars f xs) xc
 
@@ -306,13 +322,15 @@ data IneqStdForm =
   | GteStd {unGteStd :: GInequality}
   deriving (Show, Eq)
 
-instance HasVariables IneqStdForm where
+instance HasNames IneqStdForm where
   names (EquStd x) = names x
   names (LteStd x) = names x
   names (GteStd x) = names x
   mapNames f (EquStd x) = EquStd $ mapNames f x
   mapNames f (LteStd x) = LteStd $ mapNames f x
   mapNames f (GteStd x) = GteStd $ mapNames f x
+
+instance HasVariables IneqStdForm where
   vars (EquStd x) = vars x
   vars (LteStd x) = vars x
   vars (GteStd x) = vars x
