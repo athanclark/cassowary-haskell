@@ -13,7 +13,9 @@ import Linear.Grammar
 import qualified Data.Map as Map
 import Data.List (nub)
 import Data.Maybe
+import Data.Monoid
 import Control.Monad.State
+import Control.Applicative
 
 
 newtype BNFTableau a = BNFTableau

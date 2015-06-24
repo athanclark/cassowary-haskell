@@ -18,7 +18,6 @@ import Sets.Class
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Data.Monoid
-import Control.Applicative
 
 
 -- * User-facing API
