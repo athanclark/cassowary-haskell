@@ -7,6 +7,8 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
+import Prelude hiding (foldr)
+
 import Linear.Constraints.Class
 import Linear.Constraints.Tableau
 import Linear.Grammar
@@ -14,6 +16,7 @@ import Linear.Grammar
 import Data.List
 import Data.Maybe
 import Data.Monoid
+import Data.Foldable
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
