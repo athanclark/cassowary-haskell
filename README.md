@@ -13,14 +13,10 @@ cabal sandbox init && cabal install
 
 ## Usage
 
-TODO: Write usage instructions here
+
 
 ## How to run tests
 
 ```
-cabal configure --enable-tests && cabal build && cabal test
+cabal install --enable-tests && cabal test --show-details=always
 ```
-
-## Contributing
-
-TODO: Write contribution instructions here
