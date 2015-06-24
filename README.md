@@ -1,6 +1,8 @@
 cassowary-haskell
 =================
 
+[![Build Status](https://travis-ci.org/athanclark/cassowary-haskell.svg?branch=master)](https://travis-ci.org/athanclark/cassowary-haskell)
+
 > An implementation of the Cassowary linear constraint solver, in Haskell
 
 ## Installation

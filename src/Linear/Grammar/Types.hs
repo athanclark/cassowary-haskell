@@ -12,6 +12,7 @@ import Sets.Class
 
 import Data.Char
 import Data.String
+import Data.Monoid
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Applicative
