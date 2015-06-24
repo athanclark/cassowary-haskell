@@ -1,10 +1,15 @@
-# cassowary-haskell
+cassowary-haskell
+=================
 
-TODO: Write description here
+> An implementation of the Cassowary linear constraint solver, in Haskell
 
 ## Installation
 
-TODO: Write installation instructions here
+```bash
+git clone https://github.com/athanclark/cassowary-haskell.git
+cd cassowary-haskell
+cabal sandbox init && cabal install
+```
 
 ## Usage
 

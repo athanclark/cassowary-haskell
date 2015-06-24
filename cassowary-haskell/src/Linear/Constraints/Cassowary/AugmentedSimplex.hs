@@ -14,6 +14,7 @@ import Linear.Grammar
 import Data.List
 import Data.Maybe
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 
 -- * Bland's Rule
@@ -98,7 +99,39 @@ simplexPrimal x =
     Nothing -> x
 
 simplexDual :: (Tableau, Equality) -> (Tableau, Equality)
-simplexDual = transposeTab . simplexPrimal . transposeTab
+simplexDual xs = let (xs, revert) = transposeTab xs
+  in untransposeTab (simplexPrimal xs, revert)
 
-transposeTab :: (Tableau, Equality) -> (Tableau, Equality)
-transposeTab = undefined
+-- only need to transpose restricted vars, as simplex only acts on those.
+transposeTab :: (Tableau, Equality) -> ((Tableau, Equality), Map.Map Integer String)
+transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
+  let constrVars = Set.unions $ map (Map.keysSet . unLinVarMap . mainVars) ss
+      basicVars = Map.keysSet sus
+      basicBodyVars = Set.unions $ map (Map.keysSet . unLinVarMap . mainVars) $ Map.elems sus
+      allVars = Set.unions [ constrVars
+                           , basicVars
+                           , basicBodyVars
+                           ] -- excludes objective solution variable
+      allVarsMap = Set.toList allVars `zip` [0..]
+      go v (cs,newslack) = if v `Set.member` basicVars
+        then case Map.lookup v sus of
+               Just ex -> maybe
+                  (error "`transposeTab` called to expressions without slack variables.")
+                  (\oldslack ->
+                      ( EquStd (Equ (LinVarMap $ Map.fromList
+                          [ (VarMain $ unLinVarName $ varName oldslack, 1)
+                          , (VarSlack newslack, 1)
+                          ]) 0) : cs
+                      , newslack - 1
+                      )
+                  ) $ findSlack ex
+        else undefined -- find v in each equation, coeff as new main var coeff
+
+      findSlack ex = find isSlack $ map (uncurry LinVar) $ Map.toList $ unLinVarMap $ mainVars ex
+
+      isSlack (LinVar (VarSlack _) _) = True
+      isSlack _ = False
+  in ((Tableau us (mempty, fst $ foldr go ([],fromIntegral $ Set.size allVars) allVars) u, f), undefined)
+
+untransposeTab :: ((Tableau, Equality), Map.Map Integer String) -> (Tableau, Equality)
+untransposeTab = undefined

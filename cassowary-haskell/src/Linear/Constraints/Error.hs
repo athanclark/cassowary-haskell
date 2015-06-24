@@ -8,6 +8,7 @@ import Linear.Grammar.Class
 import Sets.Class
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Maybe
 
 

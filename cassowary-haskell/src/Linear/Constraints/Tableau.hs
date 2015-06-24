@@ -43,7 +43,7 @@ makeUnrestrictedTableau :: [IneqExpr] -> Tableau
 makeUnrestrictedTableau xs =
   Tableau (BNFTableau Map.empty, evalState (makeSlackVars $ map standardForm xs) 0)
           (BNFTableau Map.empty, [])
-          (nub $ concatMap names xs)
+          (concatMap names xs)
 
 remainingBasics :: (Tableau, Equality) -> Map.Map String Rational
 remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
