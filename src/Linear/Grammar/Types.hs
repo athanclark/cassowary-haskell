@@ -14,6 +14,7 @@ import Data.Char
 import Data.String
 import qualified Data.Map as Map
 import Control.Monad
+import Control.Applicative
 
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
