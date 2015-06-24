@@ -7,7 +7,7 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
-import Prelude hiding (foldr)
+import Prelude hiding (foldr, minimum)
 
 import Linear.Constraints.Class
 import Linear.Constraints.Tableau
