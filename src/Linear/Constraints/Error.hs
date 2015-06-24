@@ -1,10 +1,8 @@
 module Linear.Constraints.Error where
 
 import Linear.Constraints.Tableau
-import Linear.Constraints.Class
 import Linear.Constraints.Cassowary
 import Linear.Grammar
-import Linear.Grammar.Class
 import Sets.Class
 
 import qualified Data.Map as Map
@@ -26,7 +24,7 @@ makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
                 )) u
       newBasic = Map.fromList $ mapMaybe (\u' ->
         (\a -> ( VarError u' True
-               , mapMainVars (\(LinVarMap xs) -> LinVarMap $ -- basic in both error vars
+               , mapVars (\(LinVarMap xs) -> LinVarMap $ -- basic in both error vars
                     xs `union` Map.singleton (VarError u' False) 1) a
                )) <$> Map.lookup u' bus) u
       bus' = bus `union` Map.mapKeys (\(VarMain n) -> n) toSub

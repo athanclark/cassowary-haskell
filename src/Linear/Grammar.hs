@@ -12,7 +12,6 @@ module Linear.Grammar
   ) where
 
 import Linear.Grammar.Types as X
-import Linear.Grammar.Class as X
 import Sets.Class
 
 import qualified Data.Set as Set

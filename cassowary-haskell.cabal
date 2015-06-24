@@ -15,10 +15,8 @@ Library
   GHC-Options:          -Wall -O
   Exposed-Modules:      Linear.Grammar
                         Linear.Grammar.Types
-                        Linear.Grammar.Class
                         Linear.Constraints.Slack
                         Linear.Constraints.Error
-                        Linear.Constraints.Class
                         Linear.Constraints.Tableau
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex

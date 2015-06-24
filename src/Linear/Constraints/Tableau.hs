@@ -7,7 +7,6 @@
 module Linear.Constraints.Tableau where
 
 import Linear.Constraints.Slack
-import Linear.Constraints.Class
 import Linear.Grammar
 
 import qualified Data.Map as Map
@@ -50,7 +49,7 @@ makeUnrestrictedTableau xs =
 remainingBasics :: (Tableau, Equality) -> Map.Map String Rational
 remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
   let mknew x = Map.toList $ Map.mapKeys unLinVarName $
-        fmap (const $ Just $ constVal x) $ unLinVarMap $ mainVars x
+        fmap (const $ Just $ constVal x) $ unLinVarMap $ vars x
       allVars = foldr go mempty $ concatMap mknew $
                   EquStd f : us ++ Map.elems bus ++ ss ++ Map.elems sus
       allVars' = fromJust <$> Map.filter isJust allVars

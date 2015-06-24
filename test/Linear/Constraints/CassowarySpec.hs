@@ -3,7 +3,6 @@ module Linear.Constraints.CassowarySpec where
 import Linear.Constraints.Cassowary
 import Linear.Grammar
 import Linear.Constraints.Tableau
-import Linear.Constraints.Class
 import Sets.Class
 
 import qualified Data.Map as Map
@@ -35,12 +34,12 @@ newtype IneqStdFormWithMember = IneqStdFormWithMember
 instance Arbitrary IneqStdFormWithMember where
   arbitrary = do
     body <- arbitrary
-    n <- oneof (map return $ Map.keys $ unLinVarMap $ mainVars body)
+    n <- oneof (map return $ Map.keys $ unLinVarMap $ vars body)
     return $ IneqStdFormWithMember (n,body)
 
 prop_flatten_nonDestroy :: IneqStdFormWithMember -> Bool
 prop_flatten_nonDestroy (IneqStdFormWithMember (n,x)) =
-  Map.size (unLinVarMap $ mainVars x) == Map.size (unLinVarMap $ mainVars $ flatten n x)
+  Map.size (unLinVarMap $ vars x) == Map.size (unLinVarMap $ vars $ flatten n x)
 
 prop_flatten_idemp :: IneqStdFormWithMember -> Bool
 prop_flatten_idemp (IneqStdFormWithMember (n,x)) =
@@ -48,7 +47,7 @@ prop_flatten_idemp (IneqStdFormWithMember (n,x)) =
 
 prop_flatten_1 :: IneqStdFormWithMember -> Bool
 prop_flatten_1 (IneqStdFormWithMember (n,x)) =
-  case Map.lookup n $ unLinVarMap $ mainVars $ flatten n x of
+  case Map.lookup n $ unLinVarMap $ vars $ flatten n x of
     Nothing -> False
     Just 1 -> True
     Just _ -> False
@@ -59,7 +58,7 @@ prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
 
 prop_substitute_any0 :: IneqStdFormWithMember -> IneqStdForm -> Bool
 prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
-  case Map.lookup n $ unLinVarMap $ mainVars $ substitute n (flatten n x) y of
+  case Map.lookup n $ unLinVarMap $ vars $ substitute n (flatten n x) y of
     Nothing -> True
     Just _ -> False
 

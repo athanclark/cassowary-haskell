@@ -9,7 +9,6 @@ module Linear.Constraints.Cassowary.AugmentedSimplex where
 
 import Prelude hiding (foldr, minimum)
 
-import Linear.Constraints.Class
 import Linear.Constraints.Tableau
 import Linear.Grammar
 
@@ -33,7 +32,7 @@ nextBasic (Equ xs _) =
 
 -- | Finds the index of the next row to pivot on - note, list must have
 nextRow :: ( HasConstant a
-           , HasMainVars a
+           , HasVariables a
            ) => LinVarName -> [a] -> Maybe Int
 nextRow _ [] = Nothing
 nextRow col xs = case smallest of
@@ -46,30 +45,30 @@ nextRow col xs = case smallest of
 
 -- | Using Bland's method.
 blandRatio :: ( HasConstant a
-              , HasMainVars a
+              , HasVariables a
               ) => LinVarName -> a -> Maybe Rational
-blandRatio col x = Map.lookup col (unLinVarMap $ mainVars x) >>=
+blandRatio col x = Map.lookup col (unLinVarMap $ vars x) >>=
   \coeff -> Just $ constVal x / coeff
 
 -- | Orients equation over some (existing) variable
 flatten :: ( HasCoefficients a
            , HasConstant a
-           , HasMainVars a
+           , HasVariables a
            ) => LinVarName -> a -> a
-flatten col x = case Map.lookup col $ unLinVarMap $ mainVars x of
+flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
   Just y -> mapConst (/ y) $ mapCoeffs (map (/ y)) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
-substitute :: ( HasMainVars a
+substitute :: ( HasVariables a
               , HasConstant a
               , HasCoefficients a
               ) => LinVarName -> a -> a -> a
 substitute col focal target =
-  case Map.lookup col $ unLinVarMap $ mainVars target of
+  case Map.lookup col $ unLinVarMap $ vars target of
     Just coeff -> let focal' = mapCoeffs (map (\x -> x * coeff * (-1))) focal
-                      go (LinVarMap xs) = let xs' = Map.unionWith (+) xs (unLinVarMap $ mainVars focal')
+                      go (LinVarMap xs) = let xs' = Map.unionWith (+) xs (unLinVarMap $ vars focal')
                                           in LinVarMap $ Map.filter (/= 0) xs'
-                  in mapConst (\x -> x - constVal focal' * coeff) $ mapMainVars go target
+                  in mapConst (\x -> x - constVal focal' * coeff) $ mapVars go target
     Nothing -> target
 
 
@@ -82,7 +81,7 @@ pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
        (Just col, Just row) -> let csPre = take row c_s
                                    csPost = drop (row+1) c_s
                                    focal = flatten col $ c_s !! row
-                                   focal' = mapMainVars (\(LinVarMap xs) ->
+                                   focal' = mapVars (\(LinVarMap xs) ->
                                               LinVarMap $ Map.delete col xs) focal
           in Just ( Tableau c_u
                       ( BNFTableau $ Map.insert col focal' $
@@ -109,9 +108,9 @@ simplexDual xs = let (xs, revert) = transposeTab xs
 -- only need to transpose restricted vars, as simplex only acts on those.
 transposeTab :: (Tableau, Equality) -> ((Tableau, Equality), Map.Map Integer String)
 transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
-  let constrVars = Set.unions $ map (Map.keysSet . unLinVarMap . mainVars) ss
+  let constrVars = Set.unions $ map (Map.keysSet . unLinVarMap . vars) ss
       basicVars = Map.keysSet sus
-      basicBodyVars = Set.unions $ map (Map.keysSet . unLinVarMap . mainVars) $ Map.elems sus
+      basicBodyVars = Set.unions $ map (Map.keysSet . unLinVarMap . vars) $ Map.elems sus
       allVars = Set.unions [ constrVars
                            , basicVars
                            , basicBodyVars
@@ -131,7 +130,7 @@ transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
                   ) $ findSlack ex
         else undefined -- find v in each equation, coeff as new main var coeff
 
-      findSlack ex = find isSlack $ map (uncurry LinVar) $ Map.toList $ unLinVarMap $ mainVars ex
+      findSlack ex = find isSlack $ map (uncurry LinVar) $ Map.toList $ unLinVarMap $ vars ex
 
       isSlack (LinVar (VarSlack _) _) = True
       isSlack _ = False
