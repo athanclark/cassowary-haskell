@@ -13,6 +13,7 @@ import Linear.Grammar
 
 import Data.List
 import Data.Maybe
+import Data.Monoid
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
