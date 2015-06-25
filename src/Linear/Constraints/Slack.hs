@@ -15,7 +15,7 @@ import Control.Monad.State
 makeSlackVars :: MonadState Integer m
               => IMap.IntMap IneqStdForm
               -> m (IMap.IntMap IneqStdForm)
-makeSlackVars = mapM mkSlackStdForm
+makeSlackVars = traverse mkSlackStdForm
   where
     mkSlackStdForm :: MonadState Integer m => IneqStdForm -> m IneqStdForm
     mkSlackStdForm (EquStd c) = return $ EquStd c
