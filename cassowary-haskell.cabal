@@ -25,6 +25,7 @@ Library
                       , mtl
                       , transformers
                       , containers
+                      , these
                       , QuickCheck
                       , quickcheck-instances
 

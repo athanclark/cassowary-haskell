@@ -37,16 +37,18 @@ basicFeasibleSolution (BNFTableau solutions) =
 -- | Assumes all @VarMain@ to be @>= 0@
 makeRestrictedTableau :: [IneqExpr] -> Tableau Rational
 makeRestrictedTableau xs =
-  Tableau (BNFTableau Map.empty, mempty)
-          (BNFTableau Map.empty, evalState (makeSlackVars $ IMap.fromList $
-            [0..] `zip` map standardForm xs) 0)
+  Tableau ( BNFTableau Map.empty
+          , mempty )
+          ( BNFTableau Map.empty
+          , makeSlackVars $ IMap.fromList $ [0..] `zip` map standardForm xs )
           []
 
 makeUnrestrictedTableau :: [IneqExpr] -> Tableau Rational
 makeUnrestrictedTableau xs =
-  Tableau (BNFTableau Map.empty, evalState (makeSlackVars $ IMap.fromList $
-            [0..] `zip` map standardForm xs) 0)
-          (BNFTableau Map.empty, mempty)
+  Tableau ( BNFTableau Map.empty
+          , makeSlackVars $ IMap.fromList $ [0..] `zip` map standardForm xs )
+          ( BNFTableau Map.empty
+          , mempty )
           (concatMap names xs)
 
 remainingBasics :: (Tableau Rational, Equality Rational) -> Map.Map String Rational

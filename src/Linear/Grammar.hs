@@ -89,13 +89,13 @@ standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
   | xs == mempty = EquExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
   | ys == mempty = EquExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
   | otherwise =
-      let ys' = mapCoeffs (map ((-1 :: Rational) *)) ys
+      let ys' = mapCoeffVals ((-1 :: Rational) *) ys
       in EquExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
 standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
   | xs == mempty = LteExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
   | ys == mempty = LteExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
   | otherwise =
-      let ys' = mapCoeffs (map ((-1 :: Rational) *)) ys
+      let ys' = mapCoeffVals ((-1 :: Rational) *) ys
       in LteExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
 
 

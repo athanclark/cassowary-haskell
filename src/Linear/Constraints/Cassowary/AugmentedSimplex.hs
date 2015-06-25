@@ -25,7 +25,9 @@ import Control.Applicative
 -- * Bland's Rule
 
 -- | Most negative coefficient in objective function
-nextBasic :: Ord b => Equality b -> Maybe LinVarName
+nextBasic :: ( Ord b
+             , Num b
+             ) => Equality b -> Maybe LinVarName
 nextBasic (Equ xs _) =
   let x = minimumBy (\(_,v) (_,v') -> compare v v') $ Map.toList $ unLinVarMap xs
   in if snd x < 0
@@ -33,11 +35,11 @@ nextBasic (Equ xs _) =
      else Nothing
 
 -- | Finds the index of the next row to pivot on
-nextRow :: ( HasConstant a
-           , HasVariables a b
-           , Eq a
-           , Num b
-           ) => LinVarName -> IMap.IntMap a -> Maybe Int
+nextRow :: ( Num b
+           , Eq b
+           , Ord b
+           , Fractional b
+           ) => LinVarName -> IMap.IntMap (IneqStdForm b) -> Maybe Int
 nextRow col xs
   | xs == mempty = Nothing
   | otherwise = case smallest of
@@ -50,28 +52,28 @@ nextRow col xs
           xs' | xs' == mempty -> Nothing
               | otherwise -> Just $ minimum xs'
 
+-- TODO: weights might break concept of rationals
 -- | Using Bland's method.
-blandRatio :: ( HasConstant a
-              , HasVariables a b
-              , Num b
-              ) => LinVarName -> a -> Maybe b
+blandRatio :: ( Num b
+              , Fractional b
+              ) => LinVarName -> IneqStdForm b -> Maybe b
 blandRatio col x = Map.lookup col (unLinVarMap $ vars x) >>=
   \coeff -> Just $ constVal x / coeff
 
 -- | Orients equation over some (existing) variable
-flatten :: ( HasCoefficients a b
-           , HasConstant a
-           , HasVariables a b
-           , Num b
-           ) => LinVarName -> a -> a
+-- flatten :: ( HasCoefficients a b
+--            , HasConstant a
+--            , HasVariables a b
+--            , Num b
+--            ) => LinVarName -> a -> a
 flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
   Just y -> mapConst (/ y) $ mapCoeffs (map (/ y)) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
-substitute :: ( HasVariables a
-              , HasConstant a
-              , HasCoefficients a
-              ) => LinVarName -> a -> a -> a
+-- substitute :: ( HasVariables a
+--               , HasConstant a
+--               , HasCoefficients a
+--               ) => LinVarName -> a -> a -> a
 substitute col focal target =
   case Map.lookup col $ unLinVarMap $ vars target of
     Just coeff -> let focal' = mapCoeffs (map (\x -> x * coeff * (-1))) focal
@@ -82,7 +84,7 @@ substitute col focal target =
 
 
 -- | Performs a single pivot
-pivot :: (Tableau, Equality) -> Maybe (Tableau, Equality)
+pivot :: (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
 pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
   let mCol = nextBasic f
       mRow = mCol >>= (`nextRow` c_s)
@@ -101,18 +103,18 @@ pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
 
 
 -- | Simplex optimization
-simplexPrimal :: (Tableau, Equality) -> (Tableau, Equality)
+simplexPrimal :: (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexPrimal x =
   case pivot x of
     Just (cs,f) -> simplexPrimal (cs,f)
     Nothing -> x
 
-simplexDual :: (Tableau, Equality) -> (Tableau, Equality)
+simplexDual :: (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexDual xs = let (xs, revert) = transposeTab xs
   in untransposeTab (simplexPrimal xs, revert)
 
 -- only need to transpose restricted vars, as simplex only acts on those.
-transposeTab :: (Tableau, Equality) -> ((Tableau, Equality), Map.Map Integer String)
+transposeTab :: (Tableau b, Equality b) -> ((Tableau b, Equality b), Map.Map Integer String)
 transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
   let constrVars = Set.unions $ IMap.elems $ fmap (Map.keysSet . unLinVarMap . vars) ss
       basicVars = Map.keysSet sus
@@ -143,5 +145,5 @@ transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
       isSlack _ = False
   in ((Tableau us (mempty, fst $ foldr vertToHoriz (mempty,fromIntegral $ Set.size allVars) allVars) u, f), undefined)
 
-untransposeTab :: ((Tableau, Equality), Map.Map Integer String) -> (Tableau, Equality)
+untransposeTab :: ((Tableau b, Equality b), Map.Map Integer String) -> (Tableau b, Equality b)
 untransposeTab = undefined
