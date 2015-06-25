@@ -9,15 +9,20 @@ import Sets.Class
 
 import qualified Data.Map as Map
 import qualified Data.IntMap as IMap
+import Data.Traversable (traverse)
 import Control.Monad.State
+import Control.Applicative
 
 
-makeSlackVars :: MonadState Integer m
-              => IMap.IntMap IneqStdForm
+makeSlackVars :: ( MonadState Integer m
+                 , Applicative m
+                 ) => IMap.IntMap IneqStdForm
               -> m (IMap.IntMap IneqStdForm)
 makeSlackVars = traverse mkSlackStdForm
   where
-    mkSlackStdForm :: MonadState Integer m => IneqStdForm -> m IneqStdForm
+    mkSlackStdForm :: ( MonadState Integer m
+                      , Applicative m
+                      ) => IneqStdForm -> m IneqStdForm
     mkSlackStdForm (EquStd c) = return $ EquStd c
     mkSlackStdForm (LteStd (Lte (LinVarMap xs) xc)) = do
       s <- get

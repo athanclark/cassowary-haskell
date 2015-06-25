@@ -19,6 +19,7 @@ import Data.Foldable
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IMap
+import Control.Applicative
 
 
 -- * Bland's Rule

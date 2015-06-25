@@ -1,9 +1,12 @@
 module Linear.Constraints.SlackSpec where
 
+import Prelude hiding (all)
+
 import Linear.Grammar
 import Linear.Constraints.Slack
 
 import qualified Data.IntMap as IMap
+import Data.Foldable (all)
 import Control.Monad.State
 
 import Test.Tasty
