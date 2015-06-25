@@ -18,6 +18,7 @@ import Data.Monoid
 import Data.Foldable
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.IntMap as IMap
 
 
 -- * Bland's Rule
@@ -30,18 +31,22 @@ nextBasic (Equ xs _) =
      then Just $ fst x
      else Nothing
 
--- | Finds the index of the next row to pivot on - note, list must have
+-- | Finds the index of the next row to pivot on
 nextRow :: ( HasConstant a
            , HasVariables a
-           ) => LinVarName -> [a] -> Maybe Int
-nextRow _ [] = Nothing
-nextRow col xs = case smallest of
-  Nothing -> Nothing
-  Just s -> elemIndex (Just s) $ map (blandRatio col) xs
-  where
-    smallest = case mapMaybe (blandRatio col) xs of
-      [] -> Nothing
-      xs' -> Just $ minimum xs'
+           , Eq a
+           ) => LinVarName -> IMap.IntMap a -> Maybe Int
+nextRow col xs
+  | xs == mempty = Nothing
+  | otherwise = case smallest of
+      Nothing -> Nothing
+      Just s -> IMap.foldrWithKey (go $ Just s) Nothing $ fmap (blandRatio col) xs
+      where
+        go s k x xs | s == x = Just k
+                    | otherwise = xs
+        smallest = case IMap.mapMaybe (blandRatio col) xs of
+          xs' | xs' == mempty -> Nothing
+              | otherwise -> Just $ minimum xs'
 
 -- | Using Bland's method.
 blandRatio :: ( HasConstant a
@@ -78,16 +83,13 @@ pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
   let mCol = nextBasic f
       mRow = mCol >>= (`nextRow` c_s)
   in case (mCol, mRow) of
-       (Just col, Just row) -> let csPre = take row c_s
-                                   csPost = drop (row+1) c_s
-                                   focal = flatten col $ c_s !! row
+       (Just col, Just row) -> let focal = flatten col $ fromJust $ IMap.lookup row c_s
                                    focal' = mapVars (\(LinVarMap xs) ->
                                               LinVarMap $ Map.delete col xs) focal
           in Just ( Tableau c_u
                       ( BNFTableau $ Map.insert col focal' $
                           fmap (substitute col focal) basicc_s
-                      , map (substitute col focal) csPre
-                     ++ map (substitute col focal) csPost
+                      , substitute col focal <$> IMap.delete row c_s
                       ) u
                   , unEquStd $ substitute col focal $ EquStd f
                   )
@@ -108,7 +110,7 @@ simplexDual xs = let (xs, revert) = transposeTab xs
 -- only need to transpose restricted vars, as simplex only acts on those.
 transposeTab :: (Tableau, Equality) -> ((Tableau, Equality), Map.Map Integer String)
 transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
-  let constrVars = Set.unions $ map (Map.keysSet . unLinVarMap . vars) ss
+  let constrVars = Set.unions $ IMap.elems $ fmap (Map.keysSet . unLinVarMap . vars) ss
       basicVars = Map.keysSet sus
       basicBodyVars = Set.unions $ map (Map.keysSet . unLinVarMap . vars) $ Map.elems sus
       allVars = Set.unions [ constrVars
@@ -116,15 +118,16 @@ transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
                            , basicBodyVars
                            ] -- excludes objective solution variable
       allVarsMap = Set.toList allVars `zip` [0..]
-      go v (cs,newslack) = if v `Set.member` basicVars
+      vertToHoriz v (cs,newslack) = if v `Set.member` basicVars
         then case Map.lookup v sus of
                Just ex -> maybe
                   (error "`transposeTab` called to expressions without slack variables.")
                   (\oldslack ->
-                      ( EquStd (Equ (LinVarMap $ Map.fromList
-                          [ (VarMain $ unLinVarName $ varName oldslack, 1)
-                          , (VarSlack newslack, 1)
-                          ]) 0) : cs
+                      ( let ex' = EquStd $ Equ (LinVarMap $ Map.fromList
+                                    [ (VarMain $ unLinVarName $ varName oldslack, 1)
+                                    , (VarSlack newslack, 1)
+                                    ]) 0
+                        in IMap.insert (fromIntegral $ unVarSlack $ varName oldslack) ex' cs
                       , newslack - 1
                       )
                   ) $ findSlack ex
@@ -134,7 +137,7 @@ transposeTab (Tableau us (BNFTableau sus,ss) u, f) =
 
       isSlack (LinVar (VarSlack _) _) = True
       isSlack _ = False
-  in ((Tableau us (mempty, fst $ foldr go ([],fromIntegral $ Set.size allVars) allVars) u, f), undefined)
+  in ((Tableau us (mempty, fst $ foldr vertToHoriz (mempty,fromIntegral $ Set.size allVars) allVars) u, f), undefined)
 
 untransposeTab :: ((Tableau, Equality), Map.Map Integer String) -> (Tableau, Equality)
 untransposeTab = undefined

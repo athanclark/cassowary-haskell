@@ -8,12 +8,13 @@ import Linear.Grammar
 import Sets.Class
 
 import qualified Data.Map as Map
+import qualified Data.IntMap as IMap
 import Control.Monad.State
 
 
 makeSlackVars :: MonadState Integer m
-              => [IneqStdForm]
-              -> m [IneqStdForm]
+              => IMap.IntMap IneqStdForm
+              -> m (IMap.IntMap IneqStdForm)
 makeSlackVars = mapM mkSlackStdForm
   where
     mkSlackStdForm :: MonadState Integer m => IneqStdForm -> m IneqStdForm

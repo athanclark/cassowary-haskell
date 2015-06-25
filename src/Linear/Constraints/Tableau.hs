@@ -10,6 +10,7 @@ import Linear.Constraints.Slack
 import Linear.Grammar
 
 import qualified Data.Map as Map
+import qualified Data.IntMap as IMap
 import Data.List (nub)
 import Data.Maybe
 import Data.Monoid
@@ -24,8 +25,8 @@ newtype BNFTableau a = BNFTableau
 deriving instance (Ord a) => Monoid (BNFTableau a)
 
 data Tableau = Tableau
-  { unrestricted :: (BNFTableau String, [IneqStdForm]) -- ^ Unrestricted constraints include at least one of @urVars@.
-  , restricted   :: (BNFTableau LinVarName, [IneqStdForm])
+  { unrestricted :: (BNFTableau String, IMap.IntMap IneqStdForm) -- ^ Unrestricted constraints include at least one of @urVars@.
+  , restricted   :: (BNFTableau LinVarName, IMap.IntMap IneqStdForm)
   , urVars       :: [String]
   } deriving (Show, Eq)
 
@@ -36,14 +37,16 @@ basicFeasibleSolution (BNFTableau solutions) =
 -- | Assumes all @VarMain@ to be @>= 0@
 makeRestrictedTableau :: [IneqExpr] -> Tableau
 makeRestrictedTableau xs =
-  Tableau (BNFTableau Map.empty, [])
-          (BNFTableau Map.empty, evalState (makeSlackVars $ map standardForm xs) 0)
+  Tableau (BNFTableau Map.empty, mempty)
+          (BNFTableau Map.empty, evalState (makeSlackVars $ IMap.fromList $
+            [0..] `zip` map standardForm xs) 0)
           []
 
 makeUnrestrictedTableau :: [IneqExpr] -> Tableau
 makeUnrestrictedTableau xs =
-  Tableau (BNFTableau Map.empty, evalState (makeSlackVars $ map standardForm xs) 0)
-          (BNFTableau Map.empty, [])
+  Tableau (BNFTableau Map.empty, evalState (makeSlackVars $ IMap.fromList $
+            [0..] `zip` map standardForm xs) 0)
+          (BNFTableau Map.empty, mempty)
           (concatMap names xs)
 
 remainingBasics :: (Tableau, Equality) -> Map.Map String Rational
@@ -51,7 +54,7 @@ remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
   let mknew x = Map.toList $ Map.mapKeys unLinVarName $
         fmap (const $ Just $ constVal x) $ unLinVarMap $ vars x
       allVars = foldr go mempty $ concatMap mknew $
-                  EquStd f : us ++ Map.elems bus ++ ss ++ Map.elems sus
+                  EquStd f : IMap.elems us ++ Map.elems bus ++ IMap.elems ss ++ Map.elems sus
       allVars' = fromJust <$> Map.filter isJust allVars
   in Map.filter (/= 0) allVars'
   where

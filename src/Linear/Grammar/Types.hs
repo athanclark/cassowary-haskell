@@ -99,9 +99,9 @@ instance Coefficient Rational LinAst where
 -- * Variables
 
 data LinVarName =
-    VarMain  String
-  | VarSlack Integer
-  | VarError String Bool
+    VarMain  {unVarMain :: String}
+  | VarSlack {unVarSlack :: Integer}
+  | VarError {unVarError :: String, unVarErrorSign :: Bool}
   deriving (Show, Eq, Ord)
 
 unLinVarName :: LinVarName -> String
