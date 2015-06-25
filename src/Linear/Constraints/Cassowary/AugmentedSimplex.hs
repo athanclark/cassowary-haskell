@@ -25,7 +25,7 @@ import Control.Applicative
 -- * Bland's Rule
 
 -- | Most negative coefficient in objective function
-nextBasic :: Equality -> Maybe LinVarName
+nextBasic :: Ord b => Equality b -> Maybe LinVarName
 nextBasic (Equ xs _) =
   let x = minimumBy (\(_,v) (_,v') -> compare v v') $ Map.toList $ unLinVarMap xs
   in if snd x < 0
@@ -34,8 +34,9 @@ nextBasic (Equ xs _) =
 
 -- | Finds the index of the next row to pivot on
 nextRow :: ( HasConstant a
-           , HasVariables a
+           , HasVariables a b
            , Eq a
+           , Num b
            ) => LinVarName -> IMap.IntMap a -> Maybe Int
 nextRow col xs
   | xs == mempty = Nothing
@@ -51,15 +52,17 @@ nextRow col xs
 
 -- | Using Bland's method.
 blandRatio :: ( HasConstant a
-              , HasVariables a
-              ) => LinVarName -> a -> Maybe Rational
+              , HasVariables a b
+              , Num b
+              ) => LinVarName -> a -> Maybe b
 blandRatio col x = Map.lookup col (unLinVarMap $ vars x) >>=
   \coeff -> Just $ constVal x / coeff
 
 -- | Orients equation over some (existing) variable
-flatten :: ( HasCoefficients a
+flatten :: ( HasCoefficients a b
            , HasConstant a
-           , HasVariables a
+           , HasVariables a b
+           , Num b
            ) => LinVarName -> a -> a
 flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
   Just y -> mapConst (/ y) $ mapCoeffs (map (/ y)) x

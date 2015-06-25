@@ -18,42 +18,45 @@ import Control.Monad.State
 import Control.Applicative
 
 
-newtype BNFTableau a = BNFTableau
-  { unBNFTablaeu :: Map.Map a IneqStdForm
+newtype BNFTableau a b = BNFTableau
+  { unBNFTablaeu :: Map.Map a (IneqStdForm b)
   } deriving (Show, Eq)
 
-deriving instance (Ord a) => Monoid (BNFTableau a)
+deriving instance (Ord a) => Monoid (BNFTableau a b)
 
-data Tableau = Tableau
-  { unrestricted :: (BNFTableau String, IMap.IntMap IneqStdForm) -- ^ Unrestricted constraints include at least one of @urVars@.
-  , restricted   :: (BNFTableau LinVarName, IMap.IntMap IneqStdForm)
+data Tableau b = Tableau
+  { unrestricted :: (BNFTableau String b, IMap.IntMap (IneqStdForm b)) -- ^ Unrestricted constraints include at least one of @urVars@.
+  , restricted   :: (BNFTableau LinVarName b, IMap.IntMap (IneqStdForm b))
   , urVars       :: [String]
   } deriving (Show, Eq)
 
-basicFeasibleSolution :: BNFTableau a -> Map.Map a Rational
+basicFeasibleSolution :: BNFTableau a Rational -> Map.Map a Rational
 basicFeasibleSolution (BNFTableau solutions) =
   fmap constVal solutions
 
 -- | Assumes all @VarMain@ to be @>= 0@
-makeRestrictedTableau :: [IneqExpr] -> Tableau
+makeRestrictedTableau :: [IneqExpr] -> Tableau Rational
 makeRestrictedTableau xs =
   Tableau (BNFTableau Map.empty, mempty)
           (BNFTableau Map.empty, evalState (makeSlackVars $ IMap.fromList $
             [0..] `zip` map standardForm xs) 0)
           []
 
-makeUnrestrictedTableau :: [IneqExpr] -> Tableau
+makeUnrestrictedTableau :: [IneqExpr] -> Tableau Rational
 makeUnrestrictedTableau xs =
   Tableau (BNFTableau Map.empty, evalState (makeSlackVars $ IMap.fromList $
             [0..] `zip` map standardForm xs) 0)
           (BNFTableau Map.empty, mempty)
           (concatMap names xs)
 
-remainingBasics :: (Tableau, Equality) -> Map.Map String Rational
+remainingBasics :: (Tableau Rational, Equality Rational) -> Map.Map String Rational
 remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
-  let mknew x = Map.toList $ Map.mapKeys unLinVarName $
-        fmap (const $ Just $ constVal x) $ unLinVarMap $ vars x
-      allVars = foldr go mempty $ concatMap mknew $
+  let mkNew :: ( HasVariables a Rational
+               , HasConstant a
+               ) => a -> [(String, Maybe Rational)]
+      mkNew x = Map.toList $ Map.mapKeys unLinVarName $
+        const (Just $ constVal x) <$> unLinVarMap (vars x :: LinVarMap Rational)
+      allVars = foldr go mempty $ concatMap mkNew $
                   EquStd f : IMap.elems us ++ Map.elems bus ++ IMap.elems ss ++ Map.elems sus
       allVars' = fromJust <$> Map.filter isJust allVars
   in Map.filter (/= 0) allVars'

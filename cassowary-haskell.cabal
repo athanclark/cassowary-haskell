@@ -12,7 +12,7 @@ Build-Type:             Simple
 Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
-  GHC-Options:          -Wall -O
+  GHC-Options:          -Wall
   Exposed-Modules:      Linear.Grammar
                         Linear.Grammar.Types
                         Linear.Constraints.Slack
@@ -33,7 +33,7 @@ Test-Suite spec
   Default-Language:     Haskell2010
   Hs-Source-Dirs:       src
                       , test
-  Ghc-Options:          -Wall -O
+  Ghc-Options:          -Wall
   Main-Is:              Main.hs
   Build-Depends:        base
                       , containers

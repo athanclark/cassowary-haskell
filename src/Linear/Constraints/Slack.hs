@@ -16,13 +16,15 @@ import Control.Applicative
 
 makeSlackVars :: ( MonadState Integer m
                  , Applicative m
-                 ) => IMap.IntMap IneqStdForm
-              -> m (IMap.IntMap IneqStdForm)
+                 , Num b
+                 ) => IMap.IntMap (IneqStdForm b)
+              -> m (IMap.IntMap (IneqStdForm b))
 makeSlackVars = traverse mkSlackStdForm
   where
     mkSlackStdForm :: ( MonadState Integer m
                       , Applicative m
-                      ) => IneqStdForm -> m IneqStdForm
+                      , Num b
+                      ) => IneqStdForm b -> m (IneqStdForm b)
     mkSlackStdForm (EquStd c) = return $ EquStd c
     mkSlackStdForm (LteStd (Lte (LinVarMap xs) xc)) = do
       s <- get

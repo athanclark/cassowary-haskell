@@ -3,6 +3,7 @@
   , FlexibleInstances
   , StandaloneDeriving
   , GeneralizedNewtypeDeriving
+  , KindSignatures
   #-}
 
 module Linear.Grammar.Types where
@@ -15,6 +16,7 @@ import Data.Monoid
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Applicative
+import Control.Arrow
 
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
@@ -26,13 +28,14 @@ class HasNames a where
   names :: a -> [String]
   mapNames :: (String -> String) -> a -> a
 
-class HasVariables a where
-  vars :: a -> LinVarMap
-  mapVars :: (LinVarMap -> LinVarMap) -> a -> a
+class HasVariables a b where
+  vars :: a -> LinVarMap b
+  mapVars :: (LinVarMap b -> LinVarMap b) -> a -> a
 
-class HasCoefficients a where
-  coeffVals :: a -> [Rational]
-  mapCoeffs :: ([Rational] -> [Rational]) -> a -> a
+class HasCoefficients (a :: * -> *) where
+  coeffVals :: a b -> [b]
+  mapCoeffVals :: (b -> b) -> a b -> a b
+  zipViaCoeffVals :: ([b] -> [b]) -> a b -> a b
 
 class HasConstant a where
   constVal :: a -> Rational
@@ -135,13 +138,9 @@ instance HasNames LinVar where
   names (LinVar n _) = [unLinVarName n]
   mapNames f (LinVar n c) = LinVar (mapLinVarName f n) c
 
-instance HasVariables LinVar where
+instance HasVariables LinVar Rational where
   vars (LinVar n c) = LinVarMap $ Map.singleton n c
   mapVars f x = uncurry LinVar $ head $ Map.toList $ unLinVarMap $ f $ vars x
-
-instance HasCoefficients LinVar where
-  coeffVals (LinVar _ x) = [x]
-  mapCoeffs f (LinVar n x) = LinVar n $ head $ f [x]
 
 instance Arbitrary LinVar where
   arbitrary = liftM2 LinVar arbitrary between1000Rational
@@ -157,30 +156,38 @@ hasCoeff :: Rational -> LinVar -> Bool
 hasCoeff x (LinVar _ y) = x == y
 
 -- | Variables with coefficients
-newtype LinVarMap = LinVarMap
-  { unLinVarMap :: Map.Map LinVarName Rational
+newtype LinVarMap b = LinVarMap
+  { unLinVarMap :: Map.Map LinVarName b
   } deriving (Show, Eq)
 
-deriving instance Monoid LinVarMap
-deriving instance HasUnion LinVarMap
-deriving instance HasIntersection LinVarMap
-deriving instance HasDifference LinVarMap
+coeffs :: LinVarMap b -> [b]
+coeffs (LinVarMap m) = Map.elems m
 
-instance HasNames LinVarMap where
+mapCoeffs :: (b -> b) -> LinVarMap b -> LinVarMap b
+mapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
+
+zipViaCoeffs :: ([b] -> [b]) -> LinVarMap b -> LinVarMap b
+zipViaCoeffs f (LinVarMap m) = LinVarMap $ Map.fromList $ uncurry zip $ second f $ unzip $ Map.toList m
+
+deriving instance Monoid (LinVarMap b)
+deriving instance HasUnion (LinVarMap b)
+deriving instance HasIntersection (LinVarMap b)
+deriving instance HasDifference (LinVarMap b)
+
+instance HasNames (LinVarMap b) where
   names (LinVarMap x) = unLinVarName <$> Map.keys x
   mapNames f (LinVarMap x) = LinVarMap $ Map.mapKeys (mapLinVarName f) x
 
-instance HasVariables LinVarMap where
+instance HasVariables (LinVarMap b) b where
   vars = id
   mapVars = ($)
 
 instance HasCoefficients LinVarMap where
-  coeffVals (LinVarMap xs) = snd $ unzip $ Map.toList xs
-  mapCoeffs f (LinVarMap xs) =
-    let (ks,vs) = unzip $ Map.toList xs
-    in LinVarMap $ Map.fromList $ zip ks $ f vs
+  coeffVals = coeffs
+  mapCoeffVals = mapCoeffs
+  zipViaCoeffVals = zipViaCoeffs
 
-instance Arbitrary LinVarMap where
+instance Arbitrary b => Arbitrary (LinVarMap b) where
   arbitrary = LinVarMap <$> arbitrary `suchThat`
     (\x -> Map.size x <= 100 && Map.size x > 0)
 
@@ -188,7 +195,7 @@ instance Arbitrary LinVarMap where
 
 -- | Linear expressions suited for normal and standard form.
 data LinExpr = LinExpr
-  { exprVars :: LinVarMap
+  { exprVars :: LinVarMap Rational
   , exprConst  :: Rational
   } deriving (Show, Eq)
 
@@ -196,13 +203,9 @@ instance HasNames LinExpr where
   names (LinExpr xs _) = names xs
   mapNames f (LinExpr xs xc) = LinExpr (mapNames f xs) xc
 
-instance HasVariables LinExpr where
+instance HasVariables LinExpr Rational where
   vars (LinExpr xs _) = xs
   mapVars f (LinExpr xs xc) = LinExpr (f xs) xc
-
-instance HasCoefficients LinExpr where
-  coeffVals (LinExpr xs _) = coeffVals xs
-  mapCoeffs f (LinExpr xs xc) = LinExpr (mapCoeffs f xs) xc
 
 instance HasConstant LinExpr where
   constVal (LinExpr _ xc) = xc
@@ -229,17 +232,11 @@ instance HasNames IneqExpr where
   mapNames f (EquExpr x y) = EquExpr (mapNames f x) (mapNames f y)
   mapNames f (LteExpr x y) = LteExpr (mapNames f x) (mapNames f y)
 
-instance HasVariables IneqExpr where
+instance HasVariables IneqExpr Rational where
   vars (EquExpr x y) = vars x `union` vars y
   vars (LteExpr x y) = vars x `union` vars y
   mapVars f (EquExpr x y) = EquExpr (mapVars f x) (mapVars f y)
   mapVars f (LteExpr x y) = LteExpr (mapVars f x) (mapVars f y)
-
-instance HasCoefficients IneqExpr where
-  coeffVals (EquExpr x y) = coeffVals x ++ coeffVals y
-  coeffVals (LteExpr x y) = coeffVals x ++ coeffVals y
-  mapCoeffs f (EquExpr x y) = EquExpr (mapCoeffs f x) (mapCoeffs f y)
-  mapCoeffs f (LteExpr x y) = LteExpr (mapCoeffs f x) (mapCoeffs f y)
 
 instance Arbitrary IneqExpr where
   arbitrary = oneof
@@ -249,80 +246,83 @@ instance Arbitrary IneqExpr where
 
 -- * Standard Form Equations
 
-data Equality = Equ LinVarMap Rational
+data Equality b = Equ (LinVarMap b) Rational
   deriving (Show, Eq)
 
-instance HasNames Equality where
+instance HasNames (Equality b) where
   names (Equ xs _) = names xs
   mapNames f (Equ xs xc) = Equ (mapNames f xs) xc
 
-instance HasVariables Equality where
+instance HasVariables (Equality b) b where
   vars (Equ xs _) = xs
   mapVars f (Equ xs xc) = Equ (mapVars f xs) xc
 
 instance HasCoefficients Equality where
   coeffVals (Equ xs _) = coeffVals xs
-  mapCoeffs f (Equ xs xc) = Equ (mapCoeffs f xs) xc
+  mapCoeffVals f (Equ xs xc) = Equ (mapCoeffVals f xs) xc
+  zipViaCoeffVals f (Equ xs xc) = Equ (zipViaCoeffVals f xs) xc
 
-instance HasConstant Equality where
+instance HasConstant (Equality b) where
   constVal (Equ _ xc) = xc
   mapConst f (Equ xs xc) = Equ xs $ f xc
 
-instance Arbitrary Equality where
-  arbitrary = liftM2 Equ arbitrary between1000Rational
+instance Arbitrary b => Arbitrary (Equality b) where
+  arbitrary = liftM2 Equ arbitrary arbitrary
 
-data LInequality = Lte LinVarMap Rational
+data LInequality b = Lte (LinVarMap b) Rational
   deriving (Show, Eq)
 
-instance HasNames LInequality where
+instance HasNames (LInequality b) where
   names (Lte xs _) = names xs
   mapNames f (Lte xs xc) = Lte (mapNames f xs) xc
 
-instance HasVariables LInequality where
+instance HasVariables (LInequality b) b where
   vars (Lte xs _) = xs
   mapVars f (Lte xs xc) = Lte (mapVars f xs) xc
 
 instance HasCoefficients LInequality where
   coeffVals (Lte xs _) = coeffVals xs
-  mapCoeffs f (Lte xs xc) = Lte (mapCoeffs f xs) xc
+  mapCoeffVals f (Lte xs xc) = Lte (mapCoeffVals f xs) xc
+  zipViaCoeffVals f (Lte xs xc) = Lte (zipViaCoeffVals f xs) xc
 
-instance HasConstant LInequality where
+instance HasConstant (LInequality b) where
   constVal (Lte _ xc) = xc
   mapConst f (Lte xs xc) = Lte xs $ f xc
 
-instance Arbitrary LInequality where
-  arbitrary = liftM2 Lte arbitrary between1000Rational
+instance Arbitrary b => Arbitrary (LInequality b) where
+  arbitrary = liftM2 Lte arbitrary arbitrary
 
-data GInequality = Gte LinVarMap Rational
+data GInequality b = Gte (LinVarMap b) Rational
   deriving (Show, Eq)
 
-instance HasNames GInequality where
+instance HasNames (GInequality b) where
   names (Gte xs _) = names xs
   mapNames f (Gte xs xc) = Gte (mapNames f xs) xc
 
-instance HasVariables GInequality where
+instance HasVariables (GInequality b) b where
   vars (Gte xs _) = xs
   mapVars f (Gte xs xc) = Gte (mapVars f xs) xc
 
 instance HasCoefficients GInequality where
   coeffVals (Gte xs _) = coeffVals xs
-  mapCoeffs f (Gte xs xc) = Gte (mapCoeffs f xs) xc
+  mapCoeffVals f (Gte xs xc) = Gte (mapCoeffVals f xs) xc
+  zipViaCoeffVals f (Gte xs xc) = Gte (zipViaCoeffVals f xs) xc
 
-instance HasConstant GInequality where
+instance HasConstant (GInequality b) where
   constVal (Gte _ xc) = xc
   mapConst f (Gte xs xc) = Gte xs $ f xc
 
-instance Arbitrary GInequality where
-  arbitrary = liftM2 Gte arbitrary between1000Rational
+instance Arbitrary b => Arbitrary (GInequality b) where
+  arbitrary = liftM2 Gte arbitrary arbitrary
 
 -- | Internal structure for linear equations
-data IneqStdForm =
-    EquStd {unEquStd :: Equality}
-  | LteStd {unLteStd :: LInequality}
-  | GteStd {unGteStd :: GInequality}
+data IneqStdForm b =
+    EquStd {unEquStd :: Equality b}
+  | LteStd {unLteStd :: LInequality b}
+  | GteStd {unGteStd :: GInequality b}
   deriving (Show, Eq)
 
-instance HasNames IneqStdForm where
+instance HasNames (IneqStdForm b) where
   names (EquStd x) = names x
   names (LteStd x) = names x
   names (GteStd x) = names x
@@ -330,7 +330,7 @@ instance HasNames IneqStdForm where
   mapNames f (LteStd x) = LteStd $ mapNames f x
   mapNames f (GteStd x) = GteStd $ mapNames f x
 
-instance HasVariables IneqStdForm where
+instance HasVariables (IneqStdForm b) b where
   vars (EquStd x) = vars x
   vars (LteStd x) = vars x
   vars (GteStd x) = vars x
@@ -342,11 +342,14 @@ instance HasCoefficients IneqStdForm where
   coeffVals (EquStd x) = coeffVals x
   coeffVals (LteStd x) = coeffVals x
   coeffVals (GteStd x) = coeffVals x
-  mapCoeffs f (EquStd x) = EquStd $ mapCoeffs f x
-  mapCoeffs f (LteStd x) = LteStd $ mapCoeffs f x
-  mapCoeffs f (GteStd x) = GteStd $ mapCoeffs f x
+  mapCoeffVals f (EquStd x) = EquStd $ mapCoeffVals f x
+  mapCoeffVals f (LteStd x) = LteStd $ mapCoeffVals f x
+  mapCoeffVals f (GteStd x) = GteStd $ mapCoeffVals f x
+  zipViaCoeffVals f (EquStd x) = EquStd $ zipViaCoeffVals f x
+  zipViaCoeffVals f (LteStd x) = LteStd $ zipViaCoeffVals f x
+  zipViaCoeffVals f (GteStd x) = GteStd $ zipViaCoeffVals f x
 
-instance HasConstant IneqStdForm where
+instance HasConstant (IneqStdForm b) where
   constVal (EquStd x) = constVal x
   constVal (LteStd x) = constVal x
   constVal (GteStd x) = constVal x
@@ -354,7 +357,7 @@ instance HasConstant IneqStdForm where
   mapConst f (LteStd x) = LteStd $ mapConst f x
   mapConst f (GteStd x) = GteStd $ mapConst f x
 
-instance Arbitrary IneqStdForm where
+instance Arbitrary b => Arbitrary (IneqStdForm b) where
   arbitrary = oneof
     [ EquStd <$> arbitrary
     , LteStd <$> arbitrary
