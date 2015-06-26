@@ -163,6 +163,9 @@ mapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
 zipViaCoeffs :: ([b] -> [b]) -> LinVarMap b -> LinVarMap b
 zipViaCoeffs f (LinVarMap m) = LinVarMap $ Map.fromList $ uncurry zip $ second f $ unzip $ Map.toList m
 
+-- instance CanAddTo (LinVarMap a) (LinVarMap b) (LinVarMap r) where
+--   (LinVarMap x) .+. (LinVarMap y) = LinVarMap $ Map.unionWith (.+.) x y
+
 deriving instance Monoid (LinVarMap b)
 deriving instance HasUnion (LinVarMap b)
 deriving instance HasIntersection (LinVarMap b)

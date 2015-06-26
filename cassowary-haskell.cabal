@@ -13,7 +13,8 @@ Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
-  Exposed-Modules:      Linear.Grammar
+  Exposed-Modules:      Linear.Class
+                        Linear.Grammar
                         Linear.Grammar.Types
                         Linear.Constraints.Slack
                         Linear.Constraints.Error
