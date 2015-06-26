@@ -8,6 +8,7 @@ TODO
               - how would substitution affect this?
         - Can we make `Fractional a => Fractional [a]`?
 - See if you can make a `dualPivot`, to evade the costly transpose
+    - In the bland ratio, choose the `minimum . fmap negate`.
 
 #### ReOptimize
 

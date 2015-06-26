@@ -16,6 +16,7 @@ import Data.List (elemIndex)
 import Data.Maybe
 import Data.Monoid
 import Data.Foldable
+import Data.Function (on)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IMap
@@ -25,13 +26,22 @@ import Control.Applicative
 -- * Bland's Rule
 
 -- | Most negative coefficient in objective function
-nextBasic :: ( Ord b
-             , Num b
-             ) => Equality b -> Maybe LinVarName
-nextBasic (Equ xs _) =
-  let x = minimumBy (\(_,v) (_,v') -> compare v v') $ Map.toList $ unLinVarMap xs
-  in if snd x < 0
-     then Just $ fst x
+nextBasicPrimal :: ( Ord b
+                   , Num b
+                   ) => Equality b -> Maybe LinVarName
+nextBasicPrimal (Equ xs _) =
+  let x = minimum $ Map.elems $ unLinVarMap xs
+  in if x < 0
+     then Just x
+     else Nothing
+
+nextBasicDual :: ( Ord b
+                 , Num b
+                 ) => [IneqStdForm b] -> Maybe Int
+nextBasicDual xs =
+  let x = minimumBy (compare `on` constVal) xs
+  in if x < 0
+     then Just x
      else Nothing
 
 -- | Finds the index of the next row to pivot on
