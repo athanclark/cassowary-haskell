@@ -8,6 +8,7 @@
 
 module Linear.Grammar.Types where
 
+import Linear.Class
 import Sets.Class
 
 import Data.Char
@@ -82,20 +83,13 @@ instance Arbitrary LinAst where
 instance IsString LinAst where
   fromString = EVar
 
-(.+.) :: LinAst -> LinAst -> LinAst
-(.+.) = EAdd
+instance CanAddTo LinAst LinAst LinAst where
+  (.+.) = EAdd
 
-infixr 8 .+.
-
-class Coefficient x y where
-  (.*.) :: x -> y -> LinAst
-
-infixr 9 .*.
-
-instance Coefficient LinAst Rational where
+instance CanMultiplyTo LinAst Rational LinAst where
   (.*.) = ECoeff
 
-instance Coefficient Rational LinAst where
+instance CanMultiplyTo Rational LinAst LinAst where
   (.*.) = flip ECoeff
 
 

@@ -35,22 +35,15 @@ nextBasicPrimal (Equ xs _) =
      then Just x
      else Nothing
 
-nextBasicDual :: ( Ord b
-                 , Num b
-                 ) => [IneqStdForm b] -> Maybe Int
-nextBasicDual xs =
-  let x = minimumBy (compare `on` constVal) xs
-  in if x < 0
-     then Just x
-     else Nothing
+nextBasicDual :: ( Num b
 
 -- | Finds the index of the next row to pivot on
-nextRow :: ( Num b
-           , Eq b
-           , Ord b
-           , Fractional b
-           ) => LinVarName -> IMap.IntMap (IneqStdForm b) -> Maybe Int
-nextRow col xs
+nextRowPrimal :: ( Num b
+                 , Eq b
+                 , Ord b
+                 , Fractional b
+                 ) => LinVarName -> IMap.IntMap (IneqStdForm b) -> Maybe Int
+nextRowPrimal col xs
   | xs == mempty = Nothing
   | otherwise = case smallest of
       Nothing -> Nothing
@@ -61,6 +54,16 @@ nextRow col xs
         smallest = case IMap.mapMaybe (blandRatio col) xs of
           xs' | xs' == mempty -> Nothing
               | otherwise -> Just $ minimum xs'
+
+
+nextRowDual :: ( Ord b
+               , Num b
+               ) => [IneqStdForm b] -> Maybe Int
+nextRowDual xs =
+  let x = minimumBy (compare `on` constVal) xs
+  in if x < 0
+     then Just x
+     else Nothing
 
 -- TODO: weights might break concept of rationals
 -- | Using Bland's method.

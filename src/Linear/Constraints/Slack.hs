@@ -15,20 +15,15 @@ import Control.Monad.ST
 import Control.Applicative
 
 
--- makeSlackVars :: ( MonadState Integer m
---                  , Applicative m
---                  , Num b
---                  ) => IMap.IntMap (IneqStdForm b)
---               -> m (IMap.IntMap (IneqStdForm b))
+makeSlackVars :: ( Num b
+                 ) => IMap.IntMap (IneqStdForm b) -> IMap.IntMap (IneqStdForm b)
 makeSlackVars xs = runST $ do
   n <- newSTRef 0
   traverse (mkSlackStdForm n) xs
   where
-    -- mkSlackStdForm :: ( MonadState Integer m
-    --                   , Applicative m
-    --                   , Num b
-    --                   ) => IneqStdForm b -> m (IneqStdForm b)
-    mkSlackStdForm n (EquStd c) = return $ EquStd c
+    mkSlackStdForm :: ( Num b
+                      ) => STRef s Integer -> IneqStdForm b -> ST s (IneqStdForm b)
+    mkSlackStdForm _ (EquStd c) = return $ EquStd c
     mkSlackStdForm n (LteStd (Lte (LinVarMap xs) xc)) = do
       s <- readSTRef n
       writeSTRef n $ s+1
