@@ -32,10 +32,10 @@ nextBasicPrimal :: ( Ord b
 nextBasicPrimal (Equ xs _) =
   let x = minimum $ Map.elems $ unLinVarMap xs
   in if x < 0
-     then Just x
+     then Map.findIndex x $ unLinVarMap xs
      else Nothing
 
-nextBasicDual :: ( Num b
+-- nextBasicDual :: ( Num b
 
 -- | Finds the index of the next row to pivot on
 nextRowPrimal :: ( Num b
@@ -97,10 +97,10 @@ substitute col focal target =
 
 
 -- | Performs a single pivot
-pivot :: (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
-pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
-  let mCol = nextBasic f
-      mRow = mCol >>= (`nextRow` c_s)
+pivotPrimal :: (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
+pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
+  let mCol = nextBasicPrimal f
+      mRow = mCol >>= (`nextRowPrimal` c_s)
   in case (mCol, mRow) of
        (Just col, Just row) -> let focal = flatten col $ fromJust $ IMap.lookup row c_s
                                    focal' = mapVars (\(LinVarMap xs) ->
@@ -118,7 +118,7 @@ pivot (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
 -- | Simplex optimization
 simplexPrimal :: (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexPrimal x =
-  case pivot x of
+  case pivotPrimal x of
     Just (cs,f) -> simplexPrimal (cs,f)
     Nothing -> x
 
