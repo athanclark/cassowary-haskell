@@ -11,6 +11,7 @@ import Prelude hiding (foldr, minimum)
 
 import Linear.Constraints.Tableau
 import Linear.Grammar
+import Linear.Class
 
 import Data.List (elemIndex)
 import Data.Maybe
@@ -32,46 +33,58 @@ nextBasicPrimal :: ( Ord b
 nextBasicPrimal (Equ xs _) =
   let x = minimum $ Map.elems $ unLinVarMap xs
   in if x < 0
-     then Map.findIndex x $ unLinVarMap xs
+     then fst <$> find (\y -> snd y == x) (Map.toList $ unLinVarMap xs)
      else Nothing
 
--- nextBasicDual :: ( Num b
-
 -- | Finds the index of the next row to pivot on
-nextRowPrimal :: ( Num b
-                 , Eq b
-                 , Ord b
-                 , Fractional b
-                 ) => LinVarName -> IMap.IntMap (IneqStdForm b) -> Maybe Int
+nextRowPrimal :: ( CanDivideTo Rational b Rational
+                 , HasConstant (a b)
+                 , HasCoefficients a
+                 , HasVariables (a b) b
+                 , Eq (a b)
+                 ) => LinVarName -> [a b] -> Maybe Int
 nextRowPrimal col xs
   | xs == mempty = Nothing
   | otherwise = case smallest of
       Nothing -> Nothing
-      Just s -> IMap.foldrWithKey (go $ Just s) Nothing $ fmap (blandRatio col) xs
-      where
-        go s k x xs | s == x = Just k
-                    | otherwise = xs
-        smallest = case IMap.mapMaybe (blandRatio col) xs of
-          xs' | xs' == mempty -> Nothing
-              | otherwise -> Just $ minimum xs'
+      Just s -> foldr (go $ Just s) Nothing $ fmap (blandRatioPrimal col) xs `zip` [0..]
+  where
+    go s (x,k) xs | s == x = Just k
+                  | otherwise = xs
+    smallest = case mapMaybe (blandRatioPrimal col) xs of
+      xs' | xs' == mempty -> Nothing
+          | otherwise -> Just $ minimum xs'
+
+nextBasicDual :: ( Num b
+                 , Eq b
+                 , Ord b
+                 , Fractional b
+                 ) => Equality b -> IneqStdForm b -> Maybe Int
+nextBasicDual obj xs = undefined
 
 
 nextRowDual :: ( Ord b
-               , Num b
-               ) => [IneqStdForm b] -> Maybe Int
+               , Eq (a b)
+               , HasConstant (a b)
+               ) => [a b] -> Maybe Int
 nextRowDual xs =
   let x = minimumBy (compare `on` constVal) xs
-  in if x < 0
-     then Just x
+  in if constVal x < 0
+     then elemIndex x xs
      else Nothing
 
 -- TODO: weights might break concept of rationals
 -- | Using Bland's method.
-blandRatio :: ( Num b
-              , Fractional b
-              ) => LinVarName -> IneqStdForm b -> Maybe b
-blandRatio col x = Map.lookup col (unLinVarMap $ vars x) >>=
-  \coeff -> Just $ constVal x / coeff
+blandRatioPrimal :: ( HasConstant (a b)
+                    , HasCoefficients a
+                    , HasVariables (a b) b
+                    , CanDivideTo Rational b Rational
+                    ) => LinVarName -> a b -> Maybe Rational
+blandRatioPrimal col x =
+  let vs :: LinVarMap b
+      vs = vars x
+  in  Map.lookup col (unLinVarMap vs) >>=
+        \coeff -> Just $ constVal x ./. coeff
 
 -- | Orients equation over some (existing) variable
 -- flatten :: ( HasCoefficients a b

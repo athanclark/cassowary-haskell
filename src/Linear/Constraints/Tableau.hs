@@ -10,7 +10,6 @@ import Linear.Constraints.Slack
 import Linear.Grammar
 
 import qualified Data.Map as Map
-import qualified Data.IntMap as IMap
 import Data.List (nub)
 import Data.Maybe
 import Data.Monoid
@@ -25,8 +24,8 @@ newtype BNFTableau a b = BNFTableau
 deriving instance (Ord a) => Monoid (BNFTableau a b)
 
 data Tableau b = Tableau
-  { unrestricted :: (BNFTableau String b, IMap.IntMap (IneqStdForm b)) -- ^ Unrestricted constraints include at least one of @urVars@.
-  , restricted   :: (BNFTableau LinVarName b, IMap.IntMap (IneqStdForm b))
+  { unrestricted :: (BNFTableau String b, [IneqStdForm b]) -- ^ Unrestricted constraints include at least one of @urVars@.
+  , restricted   :: (BNFTableau LinVarName b, [IneqStdForm b])
   , urVars       :: [String]
   } deriving (Show, Eq)
 
@@ -40,13 +39,13 @@ makeRestrictedTableau xs =
   Tableau ( BNFTableau Map.empty
           , mempty )
           ( BNFTableau Map.empty
-          , makeSlackVars $ IMap.fromList $ [0..] `zip` map standardForm xs )
+          , makeSlackVars $ standardForm <$> xs )
           []
 
 makeUnrestrictedTableau :: [IneqExpr] -> Tableau Rational
 makeUnrestrictedTableau xs =
   Tableau ( BNFTableau Map.empty
-          , makeSlackVars $ IMap.fromList $ [0..] `zip` map standardForm xs )
+          , makeSlackVars $ standardForm <$> xs )
           ( BNFTableau Map.empty
           , mempty )
           (concatMap names xs)
@@ -59,7 +58,7 @@ remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
       mkNew x = Map.toList $ Map.mapKeys unLinVarName $
         const (Just $ constVal x) <$> unLinVarMap (vars x :: LinVarMap Rational)
       allVars = foldr go mempty $ concatMap mkNew $
-                  EquStd f : IMap.elems us ++ Map.elems bus ++ IMap.elems ss ++ Map.elems sus
+                  EquStd f : us ++ Map.elems bus ++ ss ++ Map.elems sus
       allVars' = fromJust <$> Map.filter isJust allVars
   in Map.filter (/= 0) allVars'
   where

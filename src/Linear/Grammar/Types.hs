@@ -29,9 +29,9 @@ class HasNames a where
   names :: a -> [String]
   mapNames :: (String -> String) -> a -> a
 
-class HasVariables a b where
-  vars :: a -> LinVarMap b
-  mapVars :: (LinVarMap b -> LinVarMap b) -> a -> a
+class HasVariables (a :: * -> *) where
+  vars :: a b -> LinVarMap b
+  mapVars :: (LinVarMap b -> LinVarMap b) -> a b -> a b
 
 class HasCoefficients (a :: * -> *) where
   coeffVals :: a b -> [b]
@@ -132,10 +132,6 @@ instance HasNames LinVar where
   names (LinVar n _) = [unLinVarName n]
   mapNames f (LinVar n c) = LinVar (mapLinVarName f n) c
 
-instance HasVariables LinVar Rational where
-  vars (LinVar n c) = LinVarMap $ Map.singleton n c
-  mapVars f x = uncurry LinVar $ head $ Map.toList $ unLinVarMap $ f $ vars x
-
 instance Arbitrary LinVar where
   arbitrary = liftM2 LinVar arbitrary between1000Rational
 
@@ -175,7 +171,7 @@ instance HasNames (LinVarMap b) where
   names (LinVarMap x) = unLinVarName <$> Map.keys x
   mapNames f (LinVarMap x) = LinVarMap $ Map.mapKeys (mapLinVarName f) x
 
-instance HasVariables (LinVarMap b) b where
+instance HasVariables LinVarMap where
   vars = id
   mapVars = ($)
 
@@ -199,10 +195,6 @@ data LinExpr = LinExpr
 instance HasNames LinExpr where
   names (LinExpr xs _) = names xs
   mapNames f (LinExpr xs xc) = LinExpr (mapNames f xs) xc
-
-instance HasVariables LinExpr Rational where
-  vars (LinExpr xs _) = xs
-  mapVars f (LinExpr xs xc) = LinExpr (f xs) xc
 
 instance HasConstant LinExpr where
   constVal (LinExpr _ xc) = xc
@@ -229,12 +221,6 @@ instance HasNames IneqExpr where
   mapNames f (EquExpr x y) = EquExpr (mapNames f x) (mapNames f y)
   mapNames f (LteExpr x y) = LteExpr (mapNames f x) (mapNames f y)
 
-instance HasVariables IneqExpr Rational where
-  vars (EquExpr x y) = vars x `union` vars y
-  vars (LteExpr x y) = vars x `union` vars y
-  mapVars f (EquExpr x y) = EquExpr (mapVars f x) (mapVars f y)
-  mapVars f (LteExpr x y) = LteExpr (mapVars f x) (mapVars f y)
-
 instance Arbitrary IneqExpr where
   arbitrary = oneof
     [ liftM2 EquExpr arbitrary arbitrary
@@ -250,7 +236,7 @@ instance HasNames (Equality b) where
   names (Equ xs _) = names xs
   mapNames f (Equ xs xc) = Equ (mapNames f xs) xc
 
-instance HasVariables (Equality b) b where
+instance HasVariables Equality where
   vars (Equ xs _) = xs
   mapVars f (Equ xs xc) = Equ (mapVars f xs) xc
 
@@ -273,7 +259,7 @@ instance HasNames (LInequality b) where
   names (Lte xs _) = names xs
   mapNames f (Lte xs xc) = Lte (mapNames f xs) xc
 
-instance HasVariables (LInequality b) b where
+instance HasVariables LInequality where
   vars (Lte xs _) = xs
   mapVars f (Lte xs xc) = Lte (mapVars f xs) xc
 
@@ -296,7 +282,7 @@ instance HasNames (GInequality b) where
   names (Gte xs _) = names xs
   mapNames f (Gte xs xc) = Gte (mapNames f xs) xc
 
-instance HasVariables (GInequality b) b where
+instance HasVariables GInequality where
   vars (Gte xs _) = xs
   mapVars f (Gte xs xc) = Gte (mapVars f xs) xc
 
@@ -327,7 +313,7 @@ instance HasNames (IneqStdForm b) where
   mapNames f (LteStd x) = LteStd $ mapNames f x
   mapNames f (GteStd x) = GteStd $ mapNames f x
 
-instance HasVariables (IneqStdForm b) b where
+instance HasVariables IneqStdForm where
   vars (EquStd x) = vars x
   vars (LteStd x) = vars x
   vars (GteStd x) = vars x

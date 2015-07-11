@@ -16,7 +16,7 @@ import Control.Applicative
 
 
 makeSlackVars :: ( Num b
-                 ) => IMap.IntMap (IneqStdForm b) -> IMap.IntMap (IneqStdForm b)
+                 ) => [IneqStdForm b] -> [IneqStdForm b]
 makeSlackVars xs = runST $ do
   n <- newSTRef 0
   traverse (mkSlackStdForm n) xs
