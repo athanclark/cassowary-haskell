@@ -3,6 +3,7 @@
   , FlexibleInstances
   , TypeSynonymInstances
   , MultiParamTypeClasses
+  , GADTs
   #-}
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
@@ -29,11 +30,10 @@ import Control.Applicative
 
 -- | Most negative coefficient in objective function
 nextBasicPrimal :: ( Ord b
-                   , Num b
                    ) => Equality b -> Maybe LinVarName
 nextBasicPrimal (Equ xs _) =
   let x = minimum $ Map.elems $ unLinVarMap xs
-  in if x < 0
+  in if x < 0 -- TODO: zero as a Weight? Reconsider weight semantics
      then fst <$> find (\y -> snd y == x) (Map.toList $ unLinVarMap xs)
      else Nothing
 
@@ -93,19 +93,25 @@ blandRatioPrimal col x =
 --            , Num b
 --            ) => LinVarName -> a -> a
 flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
-  Just y -> mapConst (./. y) $ mapCoeffs (map (./. y)) x
+  Just y  -> mapConst (./. y) $ mapCoeffVals (./. y) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
--- substitute :: ( HasVariables a
---               , HasConstant (a b)
---               , HasCoefficients a
---               ) => LinVarName -> a b -> a b -> a b
+-- substitute :: ( HasVariables a1
+--               , HasVariables a2
+--               , HasCoefficients a2
+--               , HasConstant (a1 b4)
+--               , HasConstant (a2 b4)
+--               , CanMultiplyTo b1 b2 b3
+--               , CanMultiplyTo b3 Rational b4
+--               , CanAddTo b4 b4 b4
+--               , b2 ~ b4
+--               ) => LinVarName -> a1 b1 -> a2 b2 -> a2 b4
 substitute col focal target =
   case Map.lookup col $ unLinVarMap $ vars target of -- TODO: make right-biased mult between two Weights
-    Just coeff -> let focal' = mapCoeffVals (\x -> (x :: Weight Rational) .*. coeff .*. (-1)) focal
+    Just coeff -> let focal' = mapCoeffVals (\x -> x .*. coeff .*. (-1 :: Rational)) focal
                       go (LinVarMap xs) = let xs' = Map.unionWith (.+.) xs (unLinVarMap $ vars focal')
                                           in LinVarMap $ Map.filter (/= mempty) xs'
-                  in mapConst (\x -> x - constVal focal' * coeff) $ mapVars go target
+                  in mapConst (\x -> x .-. (constVal focal' .*. coeff)) $ mapVars go target
     Nothing -> target
 
 
@@ -115,13 +121,13 @@ pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
   let mCol = nextBasicPrimal f
       mRow = mCol >>= (`nextRowPrimal` c_s)
   in case (mCol, mRow) of
-       (Just col, Just row) -> let focal = flatten col $ fromJust $ IMap.lookup row c_s
-                                   focal' = mapVars (\(LinVarMap xs) ->
-                                              LinVarMap $ Map.delete col xs) focal
+       (Just col, Just row) ->
+          let focal = flatten col $ c_s !! row
+              focal' = mapVars (\(LinVarMap xs) -> LinVarMap $ Map.delete col xs) focal
           in Just ( Tableau c_u
                       ( BNFTableau $ Map.insert col focal' $
                           fmap (substitute col focal) basicc_s
-                      , substitute col focal <$> IMap.delete row c_s
+                      , substitute col focal <$> take row c_s ++ drop (row+1) c_s
                       ) u
                   , unEquStd $ substitute col focal $ EquStd f
                   )

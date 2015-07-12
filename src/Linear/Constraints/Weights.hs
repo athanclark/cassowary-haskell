@@ -38,6 +38,8 @@ instance CanAddTo (Weight Rational) (Weight Rational) (Weight Rational) where
 instance CanSubTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .-. (Weight y) = Weight $ alignWith (onBoth (.-.)) x y
 
+instance CanSubTo Rational (Weight Rational) Rational where
+  x .-. (Weight y) = x - sum y
 
 instance CanMultiplyTo Rational (Weight Rational) (Weight Rational) where
   x .*. y = (x .*.) <$> y

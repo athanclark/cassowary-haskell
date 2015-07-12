@@ -1,0 +1,174 @@
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+
+\title{Properties of Cassowary}
+\author{Athan Clark}
+
+\maketitle
+
+\begin{abstract}
+This paper details the entailed logical properties that a linear constraint solver,
+annotated with weights and error variables, should have. We hope to use this document
+as a paper implementation of the automated test suites accompanied with the
+Haskell and PureScript versions of Cassowary.
+\end{abstract}
+
+
+% Equations
+\section{Equations}
+
+The generic form for a linear inequality consists of a unique set of variables
+summed together, and a constant value:
+
+\begin{flalign}
+  &\mathrm{newtype} \enspace LinVarMap \enspace \alpha \enspace = \enspace
+                             LinVarMap \enspace (Map \enspace LinVarName \enspace \alpha) \label{linvarmap-def} \tag{LINVARMAP-DEF}\\
+  &\mathrm{data} \enspace IneqExpr \enspace \alpha \enspace = \enspace IneqExpr \nonumber \\
+  &\quad \{ \enspace coeffs \enspace :: \enspace (LinVarMap \enspace \alpha) \nonumber \\
+  &\quad  , \enspace const \enspace :: \enspace Rational \enspace \} \label{ineqexpr-def} \tag{INEQEXPR-DEF}
+\end{flalign}
+
+We segregate the different forms of inequality expressions with newtypes:
+
+\begin{flalign}
+  &\mathrm{newtype} \enspace Equ \enspace \alpha \enspace = \enspace Equ \enspace (IneqExpr \enspace \alpha) \label{equ-def} \tag{EQU-DEF}\\
+  &\mathrm{newtype} \enspace Lte \enspace \alpha \enspace = \enspace Lte \enspace (IneqExpr \enspace \alpha) \label{lte-def} \tag{LTE-DEF}\\
+  &\mathrm{newtype} \enspace Gte \enspace \alpha \enspace = \enspace Gte \enspace (IneqExpr \enspace \alpha) \label{gte-def} \tag{GTE-DEF}
+\end{flalign}
+
+Note that the equations are polymorphic in their coefficient type - this will be
+important when we introduce weights in section \ref{section-weights}.
+
+
+% Simplex
+\section{Simplex}
+There are several properties for dual and primal simplex method and Bland's ratio.
+
+\begin{equation}
+    \label{simple_equation}
+    \alpha = \sqrt{ \beta }
+\end{equation}
+
+\subsection{Subsection Heading Here}
+Write your subsection text here.
+
+
+% Weights
+\section{Weights} \label{section-weights}
+
+Weights are implemented as a (non-empty) list of coefficients:
+
+\begin{flalign}
+  &\mathrm{newtype} \enspace Weight \enspace \alpha \enspace = \enspace [\alpha] \label{weight-def} \tag{WEIGHT-DEF}
+\end{flalign}
+
+When an equation using \(Rational\) values as coefficents gets augmented with a
+weight (usually with a natural number - \(augment \enspace eq1 \enspace 5\)), the coefficients are
+pushed to that index in an empty stream of \(0\)s; the example just mentioned
+would stream five \(0\)s before containing the original coefficient.
+
+\subsection{Arithmetic}
+
+\subsubsection{Addition}
+
+\textbf{Instances}:
+\begin{flalign}
+  &(.+.) \enspace :: \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \label{add-sym} \tag{ADD-SYM}
+\end{flalign}
+
+Addition in \ref{add-sym} is implemented with \(unionWith\) - leaving the larger
+of the two lists intact.
+
+\[
+  (.+.) \enspace = \enspace \mathrm{unionWith} \enspace (+)
+\]
+
+\textbf{Lemma}: The length of the resulting list, when using addition, is the
+                maximum length of the two lists added.
+
+\[
+  \mathrm{length} \enspace ( xs \enspace .+. \enspace ys ) \equiv
+  \mathrm{max} \enspace ( length \enspace xs ) \enspace ( length \enspace ys )
+\]
+
+\subsubsection{Subtraction}
+
+\textbf{Instances}:
+\begin{flalign}
+  &(.-.) \enspace :: \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \label{sub-sym} \tag{SUB-SYM}\\
+  &(.-.) \enspace :: \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Rational \label{sub-forget:1} \tag{SUB-FORGET-1}\\
+  &(.-.) \enspace :: \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Rational \enspace \rightarrow
+                     \enspace Rational \label{sub-forget:2} \tag{SUB-FORGET-2}
+\end{flalign}
+
+For the first instance \ref{sub-sym}, we use \(unionWith\) again:
+
+\[
+  (.-.) \enspace = \enspace unionWith \enspace (-)
+\]
+
+For \ref{sub-forget:1} and \ref{sub-forget:2}, we sum the list (and forget weight data) before subtracting:
+
+\begin{flalign*}
+  &x \enspace .-. \enspace ys \enspace = \enspace x \enspace - \enspace sum \enspace ys\\
+  &xs \enspace .-. \enspace y \enspace = \enspace sum \enspace xs \enspace - \enspace y
+\end{flalign*}
+
+\subsubsection{Multiplication}
+
+\textbf{Instances}:
+\begin{flalign}
+  &(.*.) \enspace :: \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \label{mul-dist:1} \tag{MUL-DIST-1}\\
+  &(.*.) \enspace :: \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \label{mul-dist:2} \tag{MUL-DIST-2}\\
+  &(.*.) \enspace :: \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \label{mul-forget} \tag{MUL-FORGET}
+\end{flalign}
+
+\ref{mul-dist:1} and \ref{mul-dist:2} naturally distributes the \(Rational\)
+multiplied value to every element in the \(Weight\) list. In the \ref{mul-forget}
+instance, one of the arguments must be forgotten, and is therefore ambiguous for
+it's behaviour. We leave the implementation for this instance ambiguous, only
+necessary for implementing substitution.
+
+\begin{flalign*}
+  &xs \enspace .*. \enspace y \enspace = \enspace (* \enspace y) \enspace <\$> \enspace xs\\
+  &x \enspace .*. \enspace ys \enspace = \enspace (x \enspace *) \enspace <\$> \enspace ys
+\end{flalign*}
+
+\subsubsection{Division}
+
+\textbf{Instances}:
+\begin{flalign}
+  &(./.) \enspace :: \enspace Rational \enspace \rightarrow
+                     \enspace Weight \enspace Rational \enspace \rightarrow
+                     \enspace Rational \label{div-forget} \tag{DIV-FORGET}
+\end{flalign}
+
+We will need to divide a coefficient (\(Rational\)) by a coefficient (possibly
+a \(Weight Rational\)) in \(blandRatioPrimal\), where we have a forgetful instance -
+divide the constant by the sum of the error coefficients:
+
+\[
+  x \enspace ./. \enspace ys \enspace = \enspace x \enspace / \enspace sum \enspace ys
+\]
+
+
+\section{Conclusion}
+Write your conclusion here.
+
+\end{document}
