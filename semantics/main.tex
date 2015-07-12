@@ -4,7 +4,7 @@
 \begin{document}
 
 
-\title{Properties of Cassowary}
+\title{Properties and Semantics of Cassowary}
 \author{Athan Clark}
 
 \maketitle
@@ -20,8 +20,8 @@ Haskell and PureScript versions of Cassowary.
 % Equations
 \section{Equations}
 
-The generic form for a linear inequality consists of a unique set of variables
-summed together, and a constant value:
+The generic form for a linear inequality in standard form consists of a unique set
+of variables summed together, and a constant value:
 
 \begin{flalign}
   &\mathrm{newtype} \enspace LinVarMap \enspace \alpha \enspace = \enspace
@@ -42,19 +42,68 @@ We segregate the different forms of inequality expressions with newtypes:
 Note that the equations are polymorphic in their coefficient type - this will be
 important when we introduce weights in section \ref{section-weights}.
 
+For general inequalities, we just combine the different forms with a sum type:
+
+\begin{flalign}
+  &\mathrm{data} \enspace IneqStdForm \enspace \alpha \enspace = \nonumber \\
+  &\quad \enspace \enspace EquStd \enspace (Equ \enspace \alpha) \nonumber \\
+  &\quad |        \enspace LteStd \enspace (Lte \enspace \alpha) \nonumber \\
+  &\quad |        \enspace GteStd \enspace (Gte \enspace \alpha) \label{ineqstdform-def} \tag{INEQSTDFORM-DEF}
+\end{flalign}
+
+A tableau is then the pair of general constraints, and constraints in basic
+feasible form:
+
+\begin{flalign}
+  &\mathrm{type} \enspace Tableau \enspace \sigma \enspace = \enspace
+                  (Map \enspace LinVarName \enspace \sigma, \enspace [\sigma]) \label{tableau-def} \tag{TABLEAU-DEF}
+\end{flalign}
+
+Where a tableau is polymorphic in the constraint type used - this will be important
+when discussing slack variables in section \ref{subsection-slack-vars}.
+
 
 % Simplex
 \section{Simplex}
 There are several properties for dual and primal simplex method and Bland's ratio.
 
-\begin{equation}
-    \label{simple_equation}
-    \alpha = \sqrt{ \beta }
-\end{equation}
+\subsection{Slack Variables} \label{subsection-slack-vars}
 
-\subsection{Subsection Heading Here}
-Write your subsection text here.
+To generate slack variables, we take our list of arbitrary inequalities and turn
+them into equations, annotated with the extra slack variable:
 
+\begin{flalign*}
+  &\mathrm{makeSlackVars} \enspace :: \enspace [IneqStdForm \enspace \alpha]
+                 \enspace \rightarrow \enspace [Equ \enspace \alpha]
+\end{flalign*}
+
+Pivots for both primal and dual simplex will look similar - they take an objective
+function and a constraint set, then refactor the equations depending on the goal:
+
+\begin{flalign*}
+  &pivotPrimal \enspace :: \enspace (Equ \enspace \alpha, \enspace Tableau \enspace (Equ \enspace \alpha)) \enspace
+               \rightarrow \enspace (Equ \enspace \alpha, \enspace Tableau \enspace (Equ \enspace \alpha))\\
+  &pivotDual \enspace :: \enspace (Equ \enspace \alpha, \enspace Tableau \enspace (Equ \enspace \alpha)) \enspace
+             \rightarrow \enspace (Equ \enspace \alpha, \enspace Tableau \enspace (Equ \enspace \alpha))
+\end{flalign*}
+
+\subsection{Primal}
+
+In the primal simplex method, we first select a non-basic variable to become
+basic, and a constraint out of the set that satisfies the minimum Bland ratio for
+each pivot.
+
+\subsubsection{Next Variable}
+
+With primal simplex, first we need to select the next variable by selecting the
+\textbf{most negative} coefficient in the objective function:
+
+\[
+  \mathrm{nextBasicPrimal} \enspace :: \enspace Equ \enspace \alpha \enspace
+                           \rightarrow \enspace Maybe \enspace LinVarName
+\]
+
+\subsection{Dual}
 
 % Weights
 \section{Weights} \label{section-weights}
