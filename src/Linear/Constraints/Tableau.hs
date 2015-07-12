@@ -52,9 +52,9 @@ makeUnrestrictedTableau xs =
 
 remainingBasics :: (Tableau Rational, Equality Rational) -> Map.Map String Rational
 remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
-  let mkNew :: ( HasVariables a Rational
-               , HasConstant a
-               ) => a -> [(String, Maybe Rational)]
+  let mkNew :: ( HasVariables a
+               , HasConstant (a Rational)
+               ) => a Rational -> [(String, Maybe Rational)]
       mkNew x = Map.toList $ Map.mapKeys unLinVarName $
         const (Just $ constVal x) <$> unLinVarMap (vars x :: LinVarMap Rational)
       allVars = foldr go mempty $ concatMap mkNew $

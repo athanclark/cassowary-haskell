@@ -10,6 +10,7 @@ module Linear.Constraints.Cassowary.AugmentedSimplex where
 import Prelude hiding (foldr, minimum)
 
 import Linear.Constraints.Tableau
+import Linear.Constraints.Weights
 import Linear.Grammar
 import Linear.Class
 
@@ -40,7 +41,7 @@ nextBasicPrimal (Equ xs _) =
 nextRowPrimal :: ( CanDivideTo Rational b Rational
                  , HasConstant (a b)
                  , HasCoefficients a
-                 , HasVariables (a b) b
+                 , HasVariables a
                  , Eq (a b)
                  ) => LinVarName -> [a b] -> Maybe Int
 nextRowPrimal col xs
@@ -77,12 +78,11 @@ nextRowDual xs =
 -- | Using Bland's method.
 blandRatioPrimal :: ( HasConstant (a b)
                     , HasCoefficients a
-                    , HasVariables (a b) b
+                    , HasVariables a
                     , CanDivideTo Rational b Rational
                     ) => LinVarName -> a b -> Maybe Rational
 blandRatioPrimal col x =
-  let vs :: LinVarMap b
-      vs = vars x
+  let vs = vars x
   in  Map.lookup col (unLinVarMap vs) >>=
         \coeff -> Just $ constVal x ./. coeff
 
@@ -93,18 +93,18 @@ blandRatioPrimal col x =
 --            , Num b
 --            ) => LinVarName -> a -> a
 flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
-  Just y -> mapConst (/ y) $ mapCoeffs (map (/ y)) x
+  Just y -> mapConst (./. y) $ mapCoeffs (map (./. y)) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
 -- substitute :: ( HasVariables a
---               , HasConstant a
+--               , HasConstant (a b)
 --               , HasCoefficients a
---               ) => LinVarName -> a -> a -> a
+--               ) => LinVarName -> a b -> a b -> a b
 substitute col focal target =
-  case Map.lookup col $ unLinVarMap $ vars target of
-    Just coeff -> let focal' = mapCoeffs (map (\x -> x * coeff * (-1))) focal
-                      go (LinVarMap xs) = let xs' = Map.unionWith (+) xs (unLinVarMap $ vars focal')
-                                          in LinVarMap $ Map.filter (/= 0) xs'
+  case Map.lookup col $ unLinVarMap $ vars target of -- TODO: make right-biased mult between two Weights
+    Just coeff -> let focal' = mapCoeffVals (\x -> (x :: Weight Rational) .*. coeff .*. (-1)) focal
+                      go (LinVarMap xs) = let xs' = Map.unionWith (.+.) xs (unLinVarMap $ vars focal')
+                                          in LinVarMap $ Map.filter (/= mempty) xs'
                   in mapConst (\x -> x - constVal focal' * coeff) $ mapVars go target
     Nothing -> target
 
