@@ -59,8 +59,9 @@ feasible form:
                  (Map \enspace LinVarName \enspace \sigma, \enspace IntMap \enspace \sigma) \label{tableau-def} \tag{TABLEAU-DEF}
 \end{flalign}
 
-Where a tableau is polymorphic in the constraint type used - this will be important
-when discussing slack variables in section \ref{subsection-slack-vars}.
+Where a tableau is polymorphic in the constraint type used, and split between
+user variables in basic-normal form, and slack variables in basic-normal form.
+This is discussed in section \ref{subsection-slack-vars}.
 
 
 % Simplex
@@ -96,7 +97,7 @@ This is the operation we take when replacing an equation.
 
 \begin{flalign}
   &\forall f \enspace :: \enspace IneqStdForm \enspace \alpha. \nonumber\\
-  &\quad substitute \enspace f \enspace f \enspace \equiv \enspace mempty
+  &\quad substitute \enspace f \enspace f \enspace \equiv \enspace \emptyset
 \end{flalign}
 
 
@@ -136,11 +137,57 @@ With primal simplex, first we need to select the next variable by selecting the
     (elems \enspace \$ \enspace coeffs \enspace f) \label{nbp-neg-min} \tag{NBP-NEG-MIN}
 \end{flalign}
 
+\textbf{Notes}:
+
+\begin{enumerate}
+  \item{expect \(\alpha\) to be comparable to \(0\)}
+  \item{\(\alpha\) should be lexicographically ordered}
+\end{enumerate}
+
+\subsubsection{Bland Ratio}
+
+Bland's ratio is used to determine which constraints would have the most effect
+on the objective function by simply dividing the constraint's constant value
+by its coefficient (for some target variable). When using the ratio, you index
+for the minimum positive ratio.
+
+\[
+  blandRatioPrimal \enspace :: \enspace LinVarName \enspace \rightarrow
+                               \enspace Equ \enspace \alpha \enspace \rightarrow
+                               \enspace Maybe \enspace Rational
+\]
+
+\textbf{Lemma}: If denominator is \(0\), then result is \(Nothing\).
+
+\begin{flalign}
+  &\forall n \enspace :: \enspace LinVarName, \enspace
+   \forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
+                         lookup \enspace n \enspace coeff \enspace f \enspace = \enspace 0. \nonumber\\
+  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{br-undef-null} \tag{BR-UNDEF-NULL}
+\end{flalign}
+
+\textbf{Lemma}: If the ratio is negative, then the result is \(Nothing\).
+
+\begin{flalign}
+  &\forall n \enspace :: \enspace LinVarName, \enspace
+   \forall f \enspace :: \enspace Equ \enspace \alpha \enspace \nonumber\\
+  &\quad \quad | \enspace
+                         const \enspace f \enspace / \enspace lookup \enspace n \enspace (coeff \enspace f). \nonumber\\
+  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{br-neg-null} \tag{BR-NEG-NULL}
+\end{flalign}
+
+\textbf{Notes}:
+
+\begin{enumerate}
+  \item{expect \(\alpha\) to be comparable to \(0\)}
+  \item{expect \(\alpha\) to be a denominator to \(Rational\) (from \(const\))}
+\end{enumerate}
+
 \subsubsection{Next Constraint / Slack Variable}
 
-The slack variables are initially unique and enumerated in all the constraints,
-and would therefore constitute as basic-normal form. When we pivot with dual or
-primal simplex, we then corrupt the basic-ness of this slack variable, and populate
+The slack variables are initially unique and enumerated in all the constraints
+in a tableau, and constitute as basic-normal form. When we pivot with dual or
+primal simplex, we corrupt the \textit{basic-ness} of this slack variable, and populate
 it in other equations (and likewise move a constraint from the \(IntMap\) to the
 \(Map \enspace LinVarName\)).
 
@@ -155,6 +202,14 @@ must be found before the next row).
                             \enspace Maybe \enspace Int
 \]
 
+\textbf{Lemma}: If all coefficients are positive, then the result is \(Nothing\).
+
+\begin{flalign}
+  &\forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
+                         all \enspace (>= 0) \enspace \$ \enspace elems \enspace \$ \enspace coeffs \enspace f. \nonumber\\
+  &\quad isNothing \enspace \$ \enspace nextBasicPrimal \enspace f \label{nbp-pos-null} \tag{NBP-POS-NULL}
+\end{flalign}
+
 \textbf{Lemma}: If there is one or more positive ratio, then the result is the
                 minimum of the set.
 
@@ -168,6 +223,13 @@ must be found before the next row).
   &\quad \mathrm{in} \enspace blandRatioPrimal \enspace (fs \enspace !! \enspace x') \enspace \equiv \nonumber\\
   &\quad \quad \enspace minimum \enspace (blandRatioPrimal \enspace <\$> \enspace fs) \label{nrp-pos-min} \tag{NRP-POS-MIN}
 \end{flalign}
+
+\textbf{Notes}:
+
+\begin{enumerate}
+  \item{We expect \(\alpha\) to be comparable to \(0\)}
+  \item{Inherit from \(blandRatioPrimal\)}
+\end{enumerate}
 
 
 \subsection{Dual}
