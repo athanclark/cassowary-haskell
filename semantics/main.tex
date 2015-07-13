@@ -56,7 +56,7 @@ feasible form:
 
 \begin{flalign}
   &\mathrm{type} \enspace Tableau \enspace \sigma \enspace = \enspace
-                  (Map \enspace LinVarName \enspace \sigma, \enspace [\sigma]) \label{tableau-def} \tag{TABLEAU-DEF}
+                 (Map \enspace LinVarName \enspace \sigma, \enspace IntMap \enspace \sigma) \label{tableau-def} \tag{TABLEAU-DEF}
 \end{flalign}
 
 Where a tableau is polymorphic in the constraint type used - this will be important
@@ -74,7 +74,7 @@ them into equations, annotated with the extra slack variable:
 
 \begin{flalign*}
   &\mathrm{makeSlackVars} \enspace :: \enspace [IneqStdForm \enspace \alpha]
-                 \enspace \rightarrow \enspace [Equ \enspace \alpha]
+                 \enspace \rightarrow \enspace IntMap \enspace (Equ \enspace \alpha)
 \end{flalign*}
 
 Pivots for both primal and dual simplex will look similar - they take an objective
@@ -86,6 +86,19 @@ function and a constraint set, then refactor the equations depending on the goal
   &pivotDual \enspace :: \enspace (Equ \enspace \alpha, \enspace Tableau \enspace (Equ \enspace \alpha)) \enspace
              \rightarrow \enspace (Equ \enspace \alpha, \enspace Tableau \enspace (Equ \enspace \alpha))
 \end{flalign*}
+
+\subsection{Substitution}
+
+This is the operation we take when replacing an equation.
+
+\textbf{Lemma}: When substituting an equation on itself, the empty equation should
+                result.
+
+\begin{flalign}
+  &\forall f \enspace :: \enspace IneqStdForm \enspace \alpha. \nonumber\\
+  &\quad substitute \enspace f \enspace f \enspace \equiv \enspace mempty
+\end{flalign}
+
 
 \subsection{Primal}
 
@@ -102,6 +115,60 @@ With primal simplex, first we need to select the next variable by selecting the
   \mathrm{nextBasicPrimal} \enspace :: \enspace Equ \enspace \alpha \enspace
                            \rightarrow \enspace Maybe \enspace LinVarName
 \]
+
+\textbf{Lemma}: If all coefficients are positive, then the result is \(Nothing\).
+
+\begin{flalign}
+  &\forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
+                         all \enspace (>= 0) \enspace \$ \enspace elems \enspace \$ \enspace coeffs \enspace f. \nonumber\\
+  &\quad isNothing \enspace \$ \enspace nextBasicPrimal \enspace f \label{nbp-pos-null} \tag{NBP-POS-NULL}
+\end{flalign}
+
+\textbf{Lemma}: If there is one or more negative coefficient, then the result is
+                \(Just\) the most minimum of the set.
+
+\begin{flalign}
+  &\forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
+                         any \enspace (< 0) \enspace \$ \enspace elems \enspace \$
+                           \enspace coeffs \enspace f. \nonumber\\
+  &\quad \mathrm{let} \enspace x \enspace = \enspace fromJust \enspace ( nextBasicPrimal \enspace f ) \nonumber\\
+  &\quad \mathrm{in} \enspace x \enspace \equiv \enspace minimum \enspace
+    (elems \enspace \$ \enspace coeffs \enspace f) \label{nbp-neg-min} \tag{NBP-NEG-MIN}
+\end{flalign}
+
+\subsubsection{Next Constraint / Slack Variable}
+
+The slack variables are initially unique and enumerated in all the constraints,
+and would therefore constitute as basic-normal form. When we pivot with dual or
+primal simplex, we then corrupt the basic-ness of this slack variable, and populate
+it in other equations (and likewise move a constraint from the \(IntMap\) to the
+\(Map \enspace LinVarName\)).
+
+We chose the next constraint from the \(IntMap\) by finding the least postivie
+\textit{Bland ratio} - basically the result of dividing the equations constant by
+the target variable's coefficient (note that in primal simplex, the next variable
+must be found before the next row).
+
+\[
+  nextRowPrimal \enspace :: \enspace LinVarName \enspace \rightarrow
+                            \enspace IntMap \enspace (Equ \enspace \alpha) \enspace \rightarrow
+                            \enspace Maybe \enspace Int
+\]
+
+\textbf{Lemma}: If there is one or more positive ratio, then the result is the
+                minimum of the set.
+
+\begin{flalign}
+  &\forall n \enspace :: \enspace LinVarName,
+   \enspace fs \enspace :: \enspace IntMap \enspace (Equ \enspace \alpha),
+   \enspace \exists x \enspace :: \enspace Int \nonumber\\
+  &\quad \quad | \enspace blandRatioPrimal \enspace (fs \enspace !! \enspace x)
+                 \enspace > \enspace 0. \nonumber\\
+  &\quad \mathrm{let} \enspace x' \enspace = \enspace fromJust \enspace ( nextRowPrimal \enspace n \enspace fs ) \nonumber\\
+  &\quad \mathrm{in} \enspace blandRatioPrimal \enspace (fs \enspace !! \enspace x') \enspace \equiv \nonumber\\
+  &\quad \quad \enspace minimum \enspace (blandRatioPrimal \enspace <\$> \enspace fs) \label{nrp-pos-min} \tag{NRP-POS-MIN}
+\end{flalign}
+
 
 \subsection{Dual}
 
