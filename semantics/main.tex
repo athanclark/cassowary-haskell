@@ -5,7 +5,7 @@
 
 
 \title{Properties and Semantics of Cassowary}
-\author{Athan Clark}
+\author{Athan Clark\\ Copyright \copyright \enspace The Grid, 2015}
 
 \maketitle
 
@@ -121,7 +121,7 @@ With primal simplex, first we need to select the next variable by selecting the
 
 \begin{flalign}
   &\forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
-                         all \enspace (>= 0) \enspace \$ \enspace elems \enspace \$ \enspace coeffs \enspace f. \nonumber\\
+                         all \enspace (\geq 0) \enspace \$ \enspace elems \enspace \$ \enspace coeffs \enspace f. \nonumber\\
   &\quad isNothing \enspace \$ \enspace nextBasicPrimal \enspace f \label{nbp-pos-null} \tag{NBP-POS-NULL}
 \end{flalign}
 
@@ -206,7 +206,7 @@ must be found before the next row).
 
 \begin{flalign}
   &\forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
-                         all \enspace (>= 0) \enspace \$ \enspace elems \enspace \$ \enspace coeffs \enspace f. \nonumber\\
+                         all \enspace (\geq 0) \enspace \$ \enspace elems \enspace \$ \enspace coeffs \enspace f. \nonumber\\
   &\quad isNothing \enspace \$ \enspace nextBasicPrimal \enspace f \label{nbp-pos-null} \tag{NBP-POS-NULL}
 \end{flalign}
 
@@ -234,19 +234,116 @@ must be found before the next row).
 
 \subsection{Dual}
 
+\subsubsection{Next Constraint / Slack Variable}
+
+For dual simplex, we do something similar to \(nextBasicPrimal\) - we choose the
+equation with the least \(constant value\), instead of the variable with the least
+coefficient in the objective function.
+
+\[
+  nextRowDual \enspace :: \enspace IntMap \enspace (Equ \enspace \alpha) \enspace \rightarrow
+                          \enspace Maybe \enspace Int
+\]
+
+\textbf{Lemma}: If all constants are positive, the result is \(Nothing\).
+
+\begin{flalign}
+  &\forall xs \enspace :: \enspace IntMap \enspace (Equ \enspace \alpha) \enspace
+             \enspace | \enspace \forall x \in xs. \enspace const \enspace x \enspace > \enspace 0. \nonumber\\
+  &\quad isNothing \enspace (nextRowDual \enspace xs) \label{nrd-pos-null} \tag{NRD-POS-NULL}
+\end{flalign}
+
+\textbf{Lemma}: If there's one or more negative constant, the result is the minimum.
+
+\begin{flalign}
+  &\forall xs \enspace :: \enspace IntMap \enspace (Equ \enspace \alpha) \enspace
+             \enspace | \enspace \exists x \in xs. \enspace const \enspace x \enspace \leq \enspace 0. \nonumber\\
+  &\quad fromJust \enspace (nextRowDual \enspace xs) \enspace \equiv \enspace
+   minimum \enspace (map \enspace const \enspace xs) \label{nrd-neg-min} \tag{NRD-NEG-MIN}
+\end{flalign}
+
+
 % Weights
 \section{Weights} \label{section-weights}
 
 Weights are implemented as a (non-empty) list of coefficients:
 
 \begin{flalign}
-  &\mathrm{newtype} \enspace Weight \enspace \alpha \enspace = \enspace [\alpha] \label{weight-def} \tag{WEIGHT-DEF}
+  &\mathrm{data} \enspace Weight \enspace \alpha \enspace = \enspace WCons \enspace \alpha
+                 \enspace (Maybe \enspace (Weight \enspace \alpha)) \label{weight-def} \tag{WEIGHT-DEF}
 \end{flalign}
 
 When an equation using \(Rational\) values as coefficents gets augmented with a
 weight (usually with a natural number - \(augment \enspace eq1 \enspace 5\)), the coefficients are
 pushed to that index in an empty stream of \(0\)s; the example just mentioned
 would stream five \(0\)s before containing the original coefficient.
+
+\[
+  makeWeight \enspace :: \enspace Nat \enspace \rightarrow
+                         \enspace Rational \enspace \rightarrow
+                         \enspace Weight \enspace Rational
+\]
+
+as an example:
+
+\begin{flalign*}
+  &makeWeight \enspace 3 \enspace (1/3) \enspace \equiv \enspace\\
+  &WCons \enspace 0 \enspace \$ \enspace Just \enspace (\\
+  &\quad WCons \enspace 0 \enspace \$ \enspace Just \enspace (\\
+  &\quad \quad WCons \enspace 0 \enspace \$ \enspace Just \enspace (\\
+  &\quad \quad \quad WCons \enspace (1/3) \enspace Nothing)))
+\end{flalign*}
+
+\textbf{Lemma}: for all non-zero inputs to the second parameter, \(makeWeight\)
+                results with only one non-zero element in the stream of \(WCons\).
+
+\begin{flalign}
+  &\forall x \enspace :: \enspace Rational, \enspace \forall n \enspace :: \enspace Nat \enspace
+   | \enspace x \enspace \not = \enspace 0. \nonumber\\
+  &\quad length \enspace (filter \enspace (= \enspace 0) \enspace \$ \enspace makeWeight \enspace n \enspace x)
+         \enspace \equiv \enspace 1 \label{makeWeight-singleton} \tag{WEIGHT-SINGLETON}
+\end{flalign}
+
+
+\subsection{Ordering}
+
+Weights are compared with Rationals lexicographically - earlier elements have more prescedence
+than later ones.
+
+\begin{flalign*}
+  &boolWeight \enspace :: \enspace (\alpha \enspace \rightarrow \enspace Bool) \enspace \rightarrow
+                          \enspace Weight \enspace \alpha \enspace \rightarrow \enspace Bool\\
+  &boolWeight \enspace p \enspace (WCons \enspace x \enspace mxs) \enspace =\\
+  &\quad p \enspace x \enspace \vee \enspace (maybe \enspace False \enspace (boolWeight \enspace p) \enspace mxs)
+\end{flalign*}
+
+\textbf{Notes}:
+
+\begin{enumerate}
+  \item{Used to see which coefficient is below \(0\) in \(nextBasicPrimal\).}
+\end{enumerate}
+
+\begin{flalign*}
+  &compareWeight \enspace :: \enspace Weight \enspace \alpha \enspace \rightarrow
+                             \enspace Weight \enspace \alpha \enspace \rightarrow
+                             \enspace Ordering\\
+  &compareWeight \enspace (WCons \enspace x \enspace mxs) \enspace (WCons \enspace y \enspace mys) \enspace =\\
+  &\quad \mathrm{case} \enspace compare \enspace x \enspace y \enspace \mathrm{of}\\
+  &\quad \quad EQ \enspace \rightarrow \enspace | \enspace isNothing \enspace x \enspace \rightarrow \enspace GT\\
+  &\quad \quad \quad \quad \quad \quad          | \enspace isNothing \enspace y \enspace \rightarrow \enspace LT\\
+  &\quad \quad \quad \quad \quad \quad          | \enspace otherwise \enspace \rightarrow
+                       \enspace compareWeight \enspace (fromJust \enspace mxs)\\
+  &\quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad
+   \quad \quad \quad \quad \quad \quad \quad \enspace  (fromJust \enspace mys)\\
+  &\quad \quad o \enspace \rightarrow \enspace o
+\end{flalign*}
+
+\textbf{Notes}:
+
+\begin{enumerate}
+  \item{Used to realize the minimum coefficient in \(nextBasicPrimal\).}
+\end{enumerate}
+
 
 \subsection{Arithmetic}
 
