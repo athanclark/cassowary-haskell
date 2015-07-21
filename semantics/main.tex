@@ -144,7 +144,7 @@ With primal simplex, first we need to select the next variable by selecting the
   \item{\(\alpha\) should be lexicographically ordered}
 \end{enumerate}
 
-\subsubsection{Bland Ratio}
+\subsubsection{Bland's Rule}
 
 Bland's ratio is used to determine which constraints would have the most effect
 on the objective function by simply dividing the constraint's constant value
@@ -163,7 +163,7 @@ for the minimum positive ratio.
   &\forall n \enspace :: \enspace LinVarName, \enspace
    \forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
                          lookup \enspace n \enspace coeff \enspace f \enspace = \enspace 0. \nonumber\\
-  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{br-undef-null} \tag{BR-UNDEF-NULL}
+  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{brp-undef-null} \tag{BRP-UNDEF-NULL}
 \end{flalign}
 
 \textbf{Lemma}: If the ratio is negative, then the result is \(Nothing\).
@@ -173,14 +173,14 @@ for the minimum positive ratio.
    \forall f \enspace :: \enspace Equ \enspace \alpha \enspace \nonumber\\
   &\quad \quad | \enspace
                          const \enspace f \enspace / \enspace lookup \enspace n \enspace (coeff \enspace f). \nonumber\\
-  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{br-neg-null} \tag{BR-NEG-NULL}
+  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{brp-neg-null} \tag{BRP-NEG-NULL}
 \end{flalign}
 
 \textbf{Notes}:
 
 \begin{enumerate}
   \item{expect \(\alpha\) to be comparable to \(0\)}
-  \item{expect \(\alpha\) to be a denominator to \(Rational\) (from \(const\))}
+  \item{expect \(\alpha\) to be a denominator to \(Rational\)}
 \end{enumerate}
 
 \subsubsection{Next Constraint / Slack Variable}
@@ -260,6 +260,62 @@ coefficient in the objective function.
              \enspace | \enspace \exists x \in xs. \enspace const \enspace x \enspace \leq \enspace 0. \nonumber\\
   &\quad fromJust \enspace (nextRowDual \enspace xs) \enspace \equiv \enspace
    minimum \enspace (map \enspace const \enspace xs) \label{nrd-neg-min} \tag{NRD-NEG-MIN}
+\end{flalign}
+
+\subsubsection{Bland's Rule}
+
+We're going to invert the primal Bland ratio, such that the concepts are exactly
+the same, except we swap the roles of slack and user variables, and likewise
+with objective coefficients and equation constants.
+
+\[
+  blandRatioDual \enspace :: \enspace LinVarName \enspace \rightarrow
+                             \enspace Equ \enspace \alpha \enspace \rightarrow
+                             \enspace Maybe \enspace Rational
+\]
+
+\textbf{Lemma}: If denominator is \(0\), then result is \(Nothing\).
+
+\begin{flalign}
+  &\forall n \enspace :: \enspace LinVarName, \enspace
+   \forall f \enspace :: \enspace Equ \enspace \alpha \enspace | \enspace
+                         const \enspace f \enspace = \enspace 0. \nonumber\\
+  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{brd-undef-null} \tag{BRD-UNDEF-NULL}
+\end{flalign}
+
+\textbf{Lemma}: If the ratio is negative, then the result is \(Nothing\).
+
+\begin{flalign}
+  &\forall n \enspace :: \enspace LinVarName, \enspace
+   \forall f \enspace :: \enspace Equ \enspace \alpha \enspace \nonumber\\
+  &\quad \quad | \enspace lookup \enspace n \enspace (coeff \enspace f) \enspace /
+                 \enspace const \enspace f. \nonumber\\
+  &\quad isNothing \enspace (blandRatioPrimal \enspace f) \label{brd-neg-null} \tag{BR-NEG-NULL}
+\end{flalign}
+
+\textbf{Notes}:
+
+\begin{enumerate}
+  \item{expect \(\alpha\) to be comparable to \(0\)}
+  \item{expect \(\alpha\) to be a numerator to \(Rational\)}
+\end{enumerate}
+
+\subsubsection{Next Variable}
+
+After we have the targeted equation, we choose the next variable to have the
+minimum, negative dual Bland ratio.
+
+\[
+  nextBasicPrimal \enspace :: \enspace Equ \enspace \alpha \enspace \rightarrow
+                              \enspace Maybe \enspace LinVarName
+\]
+
+\textbf{Lemma}: If all ratios are positive, the result is nothing.
+
+\begin{flalign}
+  &\forall f \enspace :: \enspace Equ \enspace \alpha
+             \enspace |  \enspace \forall x \in coeffs \enspace f. \enspace
+                         x \enspace / \enspace const \enspace f.
 \end{flalign}
 
 

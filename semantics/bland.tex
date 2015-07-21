@@ -1,0 +1,120 @@
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+
+\title{Bland's Rule Elaboration}
+\author{Athan Clark\\ Copyright \copyright \enspace The Grid, 2015}
+
+\maketitle
+
+\begin{abstract}
+Bland's rule is the most popular method to deciding the next pivot to take when
+refactoring a system of linear inequalities for more-optimized basic-feasible
+solutions. Here, we detail Bland's rule, and provide it's dual form for implementation
+in the Haskell version of the Cassowary constraint solver.
+\end{abstract}
+
+\section{Overview}
+
+Say we have an objective function in the following form:
+
+\begin{flalign*}
+  &\omega \enspace = \enspace \sum_{0}^{n} \alpha_{n} x_{n} \enspace + \enspace c_{\omega}
+\end{flalign*}
+
+That is, an equation where the unique objective variable \(\omega\) is in basic-normal form, and
+the rest of the public \(n\) variables are summed with their coefficients - \(\alpha_{n} x_{n}\),
+and the constant value \(c_{\omega}\). We use \(\alpha\) to denote \textit{objective} coefficients.
+
+This objective function is then maximized over a constraint set with the following form:
+
+\begin{flalign*}
+  & \left \{
+      \sum_{0}^{n} \beta_{(m,n)} x_{n} \enspace + \enspace c_{m}
+    \right \}
+\end{flalign*}
+
+For each constraint \(m\). We use \(\beta\) to denote \textit{constraint} coefficients. Each
+constraint \(m\) can have any variable \(x_{n}\) in basic-feasible form. Also, note that
+the slack variables normally introduced in this context are implicit - they are referenced
+by the unique identifier \(m\) per-constraint.
+
+\section{Bland's Rule Primal}
+
+The primal version of Bland's rule proceeds as follows: Choose a column \(k\) out of
+\(n\), and a row \(j\) out of \(m\) as the next variable to refactor into basic-normal
+form over the whole constraint set - this as, \(x_{k}\) will be defined in terms of
+the constraint \(j\).
+
+\subsection{Column Selection}
+
+\begin{flalign*}
+  & \mathrm{Choose} \enspace \alpha_{k} \enspace := \enspace
+    \mathrm{min} \left \{
+                    \alpha_{n}
+                    \enspace | \enspace \alpha_{n} < 0
+                 \right \}
+\end{flalign*}
+
+We choose the column \(k\) to be the minimum \textit{negative} objective coefficient.
+
+\subsection{Row Selection}
+
+In the primal version of Bland's rule, we need to first solve for \(k\) before we
+can solve for \(j\).
+
+\begin{flalign*}
+  & \mathrm{Choose} \enspace \frac{c_{j}}{\beta_{(j,k)}} \enspace := \enspace
+    \mathrm{min} \left \{
+                    \frac{c_{m}}{\beta_{(m,k)}}
+                    \enspace \bigg| \enspace \beta_{(m,k)} > 0
+                 \right \}
+\end{flalign*}
+
+That is, we choose \(j\) to be the minimum (primal) Bland ratio - the constant
+\(c_{m}\) divided by the \textit{strictly positive} coefficient \(\beta_{(m,k)}\).
+
+You can find the proofs that this method of row and column selection does not
+cycle, and is strictly maximizing the basic-feasible solution in the literature.
+
+
+\section{Bland's Rule Dual}
+
+The dual version of Bland's rule is very similar to the primal version, except
+for the swapped roles - this would behave the same as the primal version if we
+transpose the matrix of the objective function and constraint coefficients.
+
+Here, we will instead need to select the row \(j\) \textbf{first}, and the column
+second.
+
+\subsection{Row Selection}
+
+\begin{flalign*}
+  & \mathrm{Choose} \enspace c_{j} \enspace := \enspace
+    \mathrm{min} \left \{
+                    c_{m}
+                    \enspace | \enspace c_{m} < 0
+                 \right \}
+\end{flalign*}
+
+We choose the row \(j\) to be the minimum \textit{negative} constraint constant.
+
+\subsection{Column Selection}
+
+In the dual version of Bland's rule, we need to first solve for \(j\) before we
+can solve for \(k\).
+
+\begin{flalign*}
+  & \mathrm{Choose} \enspace \frac{\alpha_{k}}{\beta_{(j,k)}} \enspace := \enspace
+    \mathrm{min} \left \{
+                    \frac{\alpha_{n}}{\beta_{(j,n)}}
+                    \enspace \bigg| \enspace \beta_{(j,n)} > 0
+                 \right \}
+\end{flalign*}
+
+The dual version of Bland's rule will \textit{minimize} the basic-feasible solution
+for the constraint set and objective function.
+
+\end{document}
