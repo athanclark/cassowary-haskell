@@ -1,0 +1,42 @@
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+
+\title{Intuitionistic Approach to Matroids}
+\author{Athan Clark\\ Copyright \copyright \enspace The Grid, 2015}
+
+\maketitle
+
+\begin{abstract}
+Matroids are an important interest to (combinatorial) optimization - where each
+"step'' made strictly approaches the optimal solution. Here we assert the properties
+and definition of matroids in an intuitionistic setting, to better formalize and
+prove matroids as correct and important.
+\end{abstract}
+
+\section{Overview}
+
+As one definition, a Matroid \(M\) consists of a \textbf{ground} set \(E\) and a "family''
+\(I\) of \textbf{independent} subsets of \(E\), with the following properties:
+
+\[
+             E : \forall \sigma. \enspace Set \enspace \sigma
+  , \enspace I : \forall \sigma. \enspace Set \enspace (Set \enspace \sigma) \quad \mathrm{where}
+\]
+
+\begin{flalign}
+  &I \not \equiv \emptyset \iff \emptyset \in I \label{matroid-nonempty} \tag{MATROID-NONEMPTY}\\
+  &\forall a \in A. \enspace a \subseteq E \label{matroid-subset} \tag{MATROID-SUBSET}\\
+  &\quad \forall \alpha \subseteq a. \enspace \alpha \in E \label{matroid-hereditary} \tag{MATROID-HEREDITARY}\\
+  &\forall i_{n}, \enspace i_{n+1} \in I. \enspace \exists ! e \in i_{n+1} - i_{n} \nonumber\\
+  &\quad \forall i \in I. \enspace i \cup \{e\} \in I \label{matroid-growth} \tag{MATROID-GROWTH}
+\end{flalign}
+
+Where in \ref{matroid-growth}, \(i_{n}\) denotes the element \(i\) of \(I\) such that
+its size \(|i_{n}| = n\); if there is \textit{one} element difference between the two
+sets, then the differing element exists in all independent sets.
+
+
+\end{document}
