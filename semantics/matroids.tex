@@ -1,42 +1,159 @@
 \documentclass{article}
 \usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+\newtheorem{theorem}{Theorem}
 
 \begin{document}
 
 
-\title{Intuitionistic Approach to Matroids}
+\title{Generic Matroids}
 \author{Athan Clark\\ Copyright \copyright \enspace The Grid, 2015}
 
 \maketitle
 
 \begin{abstract}
-Matroids are an important interest to (combinatorial) optimization - where each
-"step'' made strictly approaches the optimal solution. Here we assert the properties
-and definition of matroids in an intuitionistic setting, to better formalize and
-prove matroids as correct and important.
+  Matroids are a great tool for optimization - say we have a set of elements, and
+  some function to measure each element. If we want to maximize the \textit{total}
+  measure of a subset of the input, we can do so quickly with matroids. The principal
+  is simple - if we first have all paths to potential solutions at hand (the matroid itself),
+  and a function to take elements of our set and give us some unit that we can compare
+  each other against (for instance, the \(Ord\) type class in Haskell), then we can
+  find the subset with a maximum total very quickly.
+
+  Here we assert the properties and definition of matroids, to better formalize and
+  demonstrate their utility.
 \end{abstract}
 
 \section{Overview}
 
-As one definition, a Matroid \(M\) consists of a \textbf{ground} set \(E\) and a "family''
-\(I\) of \textbf{independent} subsets of \(E\), with the following properties:
+A Matroid can be seen as the "road map'' to every possible solution.
+The potential solutions are based on an input set, and the
+set of all potential solutions are the roads. Formally, a matroid consists of
+a \textbf{ground} set \(E\) (the input), and a "family'' \(I\) of \textbf{independent}
+subsets of \(E\) (the roads):
 
 \[
-             E : \forall \sigma. \enspace Set \enspace \sigma
-  , \enspace I : \forall \sigma. \enspace Set \enspace (Set \enspace \sigma) \quad \mathrm{where}
+             E : Set \enspace \delta
+  , \enspace I : Set \enspace (Set \enspace \delta)
+  \enspace \mathrm{where} \enspace I \subseteq \rho E
 \]
 
+for some element type \(\delta\).
+\(I\) is a subset of the power set of \(E\); \(I\) is a set of subsets of \(E\).
+
+\section{Properties}
+
+For \(I\) to be seen as the routes we can take to a solution, we need some closure
+properties. An independence system supports the potential routes from an empty set
+to a solution, and the augmentation property lets us grow from a smaller solution
+to a larger one:
+
 \begin{flalign}
-  &I \not \equiv \emptyset \iff \emptyset \in I \label{matroid-nonempty} \tag{MATROID-NONEMPTY}\\
-  &\forall a \in A. \enspace a \subseteq E \label{matroid-subset} \tag{MATROID-SUBSET}\\
-  &\quad \forall \alpha \subseteq a. \enspace \alpha \in E \label{matroid-hereditary} \tag{MATROID-HEREDITARY}\\
-  &\forall i_{n}, \enspace i_{n+1} \in I. \enspace \exists ! e \in i_{n+1} - i_{n} \nonumber\\
-  &\quad \forall i \in I. \enspace i \cup \{e\} \in I \label{matroid-growth} \tag{MATROID-GROWTH}
+  \forall i \in I. &\enspace i \subseteq E \label{matroid-subset} \tag{MATROID-SUBSET}\\
+  \forall i \in I. &\enspace \rho i \subseteq I \label{matroid-hereditary} \tag{MATROID-HEREDITARY}\\
+  \forall i, j \enspace &\mathrm{where} \enspace |i| < |j| \in I. \nonumber\\
+  &\exists e \in i - j. \enspace i \cup \{e\} \in I \label{matroid-growth} \tag{MATROID-GROWTH}
 \end{flalign}
 
-Where in \ref{matroid-growth}, \(i_{n}\) denotes the element \(i\) of \(I\) such that
-its size \(|i_{n}| = n\); if there is \textit{one} element difference between the two
-sets, then the differing element exists in all independent sets.
+\ref{matroid-subset} and \ref{matroid-hereditary} satisfy what
+is known as an "Independence System'', a "Hereditary Subset System'', or "Abstract Simplical Complex''.
+This gives us the knowledge that for every subset \(i \subseteq E\) in \(I\), any \textit{smaller variant} of
+\(i\) is also in \(I\). \ref{matroid-growth} is the "Augmentation Property'' for matroids, letting
+us grow from a smaller element to a larger element, by implementing atomic inclusion of
+additional elements via union.
 
+With these properties, not only can we leverage matroids as a means to check if a subset of \(E\) is
+a potential solution (in \(I\)), but we can also easily \textit{add to} our solution, and see if that
+is also satisfactory. The \(greedily\) function relies on this, inductively proving that it
+strongly normalizes to a maximum \textit"{weight}''. That is, when using a
+\(weigh\) function as a metric for each element of type \(\delta\) in \(E\), \(greedily\) can find the subset of
+\(E\) that maximizes the total of this weight metric.
+
+This is the nature of \(I\) - it is exhaustive in every opportinity that a subset of \(E\) can have to become
+a larger solution - all subsets of a potential solution will be a potential solution, and through augmentation we can
+approach a larger solution from a smaller one.
+
+\section{Weights}
+
+Matroids let us find optimal subsets of a particular set, with respect to a particular \textit{metric}.
+We need some form of \(weigh\) function, which gives a measure for each element in \(E\):
+
+\[
+  weigh \enspace : \enspace \delta \rightarrow \psi
+\]
+
+For our purposes, we will also need some way to get a "total'' value of any number
+of \(\psi\) values - in \textit{any order}, too. This means that we need a binary
+\(\otimes\) function, which satisfies an \textit{abelian semigroup} over \(\psi\):
+
+\begin{flalign}
+  \quad \otimes             &: \psi \rightarrow \psi \rightarrow \psi \nonumber\\
+  \forall a, b \in \psi.    &\enspace a \otimes b \equiv b \otimes a \label{psi-comm} \tag{PSI-COMM} \\
+  \forall a, b, c \in \psi. &\enspace (a \otimes b) \otimes c \equiv a \otimes (b \otimes c) \label{psi-assoc} \tag{PSI-ASSOC}
+\end{flalign}
+
+In the circumstance that we want to find the subset of \(E\) that \textit{maximizes}
+the \textit{total}\footnote{Where \(total\) is akin to \(concat\) from Haskell, in any order.},
+then \(\psi\) obviously needs to form a partial order. If we are to greedily find our
+maximum subset, then \(\otimes\) should also be strictly increasing value when combining
+terms:
+
+\begin{flalign}
+  \forall p \in \psi.       &\enspace p \leq p \label{psi-refl} \tag{PSI-REFL} \\
+  \forall p, q \in \psi.    &\enspace p \leq q \wedge q \leq p \Rightarrow p \equiv q \label{psi-anti} \tag{PSI-ANTI} \\
+  \forall p, q, r \in \psi. &\enspace p \leq q \wedge q \leq r \Rightarrow p \leq r \label{psi-trans} \tag{PSI-TRANS} \\
+  \forall p, q \in \psi.    &\enspace p \leq p \otimes q \label{psi-inc} \tag{PSI-INC}
+\end{flalign}
+
+Where \ref{psi-refl}, \ref{psi-anti} and \ref{psi-trans} form the partial order, and
+\ref{psi-inc} shows that the total of any number terms should be larger than or equal
+to the total of any subset of those terms.
+
+\(\psi\) then serves as an auxiliary type, with enough behaviour to ensure that
+\(greedilyMax\) will find our maximum subset.
+
+\section{Optimization}
+
+\(greedilyMax\) works by making successive "\textit{pivots}'', moving the maximum element
+from the ground set to the temporary result (only if the new result is in \(I\)).
+Put simply, \(pivotMax\) mutates the temporary result directly, and is stateful in the
+ground set:
+
+\begin{flalign*}
+  pivotMax \enspace : \enspace &( \enspace MonadState \enspace (Set \enspace \delta) \enspace m \\
+                               &, \enspace MonadReader \enspace (Set \enspace (Set \enspace \delta)) \enspace m \\
+                               &) \Rightarrow Set \enspace \delta \rightarrow m \enspace (Set \enspace \delta)\\
+  pivotMax \enspace x \enspace &= \enspace \mathrm{do} \enspace e \leftarrow takeMaximumWith \enspace weigh\\
+                               &  \quad \quad \quad \enspace i \leftarrow ask\\
+                               &  \quad \quad \quad \enspace \mathrm{if} \enspace x \cup {e} \in i \enspace
+                                  \mathrm{then} \enspace \mathrm{return} \enspace x \cup {e}\\
+                               &  \quad \quad \quad \quad \quad \quad \quad \quad \quad
+                                  \mathrm{else} \enspace \mathrm{return} \enspace x
+\end{flalign*}
+
+\(greedilyMax\) is then the fixpoint of \(pivotMax\):
+
+\begin{flalign*}
+  greedilyMax \enspace &: \enspace (Set \enspace \delta, \enspace Set \enspace (Set \enspace \delta))
+                                   \rightarrow Set \enspace \delta\\
+  greedilyMax \enspace (e, \enspace i) \enspace &= \enspace runReader \enspace (runStateT \enspace (\\
+                                                & \quad \quad \quad almostFixM \enspace (null \enspace =<< \enspace get) \enspace pivotMax
+                                                          \enspace \emptyset \\
+                                                & \quad \quad ) \enspace e) \enspace i
+\end{flalign*}
+
+In this way, \(greedilyMax\) finds the maximum subset.
+
+\begin{theorem}[Greedily Maximum]
+  \(greedilyMax\) finds the subset of \(E\) in \(I\) such that
+  \(total\) of \(weigh\) mapped over the subset is maximal compared to
+  all elements in \(I \subseteq \rho E\).
+\end{theorem}
+
+\begin{proof}
+  By induction on
+\end{proof}
 
 \end{document}
