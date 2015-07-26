@@ -3,7 +3,16 @@
 \usepackage{amssymb}
 \usepackage{amsthm}
 
+\renewcommand\qedsymbol{$\blacksquare$}
 \newtheorem{theorem}{Theorem}
+
+\newcommand{\where}{\enspace \mathrm{where} \enspace}
+\newcommand{\hdo}{\enspace \mathrm{do} \enspace}
+\newcommand{\hreturn}{\enspace \mathrm{return} \enspace}
+\newcommand{\hif}{\enspace \mathrm{if} \enspace}
+\newcommand{\hthen}{\enspace \mathrm{then} \enspace}
+\newcommand{\helse}{\enspace \mathrm{else} \enspace}
+
 
 \begin{document}
 
@@ -36,8 +45,7 @@ subsets of \(E\) (the roads):
 
 \[
              E : Set \enspace \delta
-  , \enspace I : Set \enspace (Set \enspace \delta)
-  \enspace \mathrm{where} \enspace I \subseteq \rho E
+  , \enspace I : Set \enspace (Set \enspace \delta) \where I \subseteq \rho E
 \]
 
 for some element type \(\delta\).
@@ -53,7 +61,7 @@ to a larger one:
 \begin{flalign}
   \forall i \in I. &\enspace i \subseteq E \label{matroid-subset} \tag{MATROID-SUBSET}\\
   \forall i \in I. &\enspace \rho i \subseteq I \label{matroid-hereditary} \tag{MATROID-HEREDITARY}\\
-  \forall i, j \enspace &\mathrm{where} \enspace |i| < |j| \in I. \nonumber\\
+  \forall i, j &\where |i| < |j| \in I. \nonumber\\
   &\exists e \in i - j. \enspace i \cup \{e\} \in I \label{matroid-growth} \tag{MATROID-GROWTH}
 \end{flalign}
 
@@ -125,35 +133,252 @@ ground set:
   pivotMax \enspace : \enspace &( \enspace MonadState \enspace (Set \enspace \delta) \enspace m \\
                                &, \enspace MonadReader \enspace (Set \enspace (Set \enspace \delta)) \enspace m \\
                                &) \Rightarrow Set \enspace \delta \rightarrow m \enspace (Set \enspace \delta)\\
-  pivotMax \enspace x \enspace &= \enspace \mathrm{do} \enspace e \leftarrow takeMaximumWith \enspace weigh\\
+  pivotMax \enspace x \enspace &= \hdo e \leftarrow takeMaximumWith \enspace weigh\\
                                &  \quad \quad \quad \enspace i \leftarrow ask\\
-                               &  \quad \quad \quad \enspace \mathrm{if} \enspace x \cup {e} \in i \enspace
-                                  \mathrm{then} \enspace \mathrm{return} \enspace x \cup {e}\\
+                               &  \quad \quad \quad \hif x \cup {e} \in i
+                                  \hthen \mathrm{return} \enspace x \cup {e}\\
                                &  \quad \quad \quad \quad \quad \quad \quad \quad \quad
                                   \mathrm{else} \enspace \mathrm{return} \enspace x
 \end{flalign*}
 
-\(greedilyMax\) is then the fixpoint of \(pivotMax\):
+\(greedilyMax\) is then the partial fixpoint of \(pivotMax\) - until there is nothing left in the
+copy of \(E\):
 
 \begin{flalign*}
   greedilyMax \enspace &: \enspace (Set \enspace \delta, \enspace Set \enspace (Set \enspace \delta))
                                    \rightarrow Set \enspace \delta\\
-  greedilyMax \enspace (e, \enspace i) \enspace &= \enspace runReader \enspace (runStateT \enspace (\\
-                                                & \quad \quad \quad almostFixM \enspace (null \enspace =<< \enspace get) \enspace pivotMax
-                                                          \enspace \emptyset \\
-                                                & \quad \quad ) \enspace e) \enspace i
+  greedilyMax \enspace &(e, \enspace i) \enspace := \enspace runReader \enspace (runStateT \enspace go \enspace e) \enspace i\\
+              \where go \enspace &:= \enspace almostFixM \enspace (null \enspace =<< \enspace get) \enspace pivotMax
+                        \enspace \emptyset
 \end{flalign*}
 
 In this way, \(greedilyMax\) finds the maximum subset.
 
-\begin{theorem}[Greedily Maximum]
-  \(greedilyMax\) finds the subset of \(E\) in \(I\) such that
-  \(total\) of \(weigh\) mapped over the subset is maximal compared to
-  all elements in \(I \subseteq \rho E\).
+\begin{theorem}[Maximum Total]
+  \(greedilyMax\) finds the subset \(X \in I, X \subseteq E\) such that
+  \(\sum \left( fmap \enspace weigh \enspace X \right)\) is maximal compared to
+  all other elements in \(I \subseteq \rho E\).
 \end{theorem}
 
 \begin{proof}
-  By induction on
+  We first prove that \(go\) approaches the unique, maximum-sized subset \(E_{\Omega} \subseteq E\)
+  \(E_{\Omega} \in I\). We also prove that for any \(n\), the \(total\) of any set
+  sized \(n+1\) will be larger than or equal to \(n\). From these, we can prove that
+  \(total \enspace E_{\Omega}\) will be maximal compared to all \(i \in I\).
+
+  By \ref{matroid-subset} and \ref{matroid-hereditary}, we can see that \textit{for any} \(i \in I\), we
+  can reach \(i\) from the empty set, as \(\rho i \subseteq I\). Also,
+  through \ref{matroid-growth} we can reach \textit{any larger} \(j \in I\).
+  From this, it is clear to see that we can reach \textit{the larget set} in \(I\) from
+  the empty set, especially from the fact that \(\forall i \in I. \enspace \rho i. \in I\).
+
+  The second proof follows directly from \ref{psi-inc} - if we have any additional term,
+  then the product will be greater than or equal to the original. This follows directly
+  to \(n\)-sized concatenation:
+
+  \begin{flalign*}
+    \forall xs \subseteq ys : Set \enspace \phi &\where |xs| \leq |ys|.\\
+      total \enspace xs \enspace \leq& \enspace total \enspace ys
+  \end{flalign*}
+
+  Thus, \(total \enspace E_{\Omega}\) is maximal.
 \end{proof}
+
+\begin{theorem}[Eager Maximum]
+  \(X_{n+1} \leftarrow pivotMax \enspace X_{n}\) \textit{eagerly} finds the most
+  maximal subset \(X_{n} \in I, X_{n} \subseteq E\) such
+  that for any other \(i \in I\) where \(|i| = n\), then \(total \enspace X_{n} \geq total \enspace i\).
+\end{theorem}
+
+\begin{proof}
+  By structural induction. We rely that the initial state for the \(MonadState\) component of \(pivotMax\)
+  is \(E\), and also that the initial value supplied as the third argument to \(almostFixM\)
+  is the empty set. From this, we can start our induction.
+
+  \(takeMaximumWith\) in \(pivotMax\) removes and returns the element of it's input
+  set with a maximum value from the function provided. From this, we can see that
+  for the first case, \(n := 1\), that the result is the singleton set \(\{e_{\Omega}\}\),
+  and the new state \(E - \{e_{\Omega}\}\). At this stage, it is easy to show
+
+  \[
+    \forall e' \in E - \{e_{\Omega}\}. \enspace weigh \enspace e' \leq weigh \enspace e_{\Omega}
+  \] as that is the definition for the maximum. To be more precise, we must show
+  \begin{flalign}
+    \forall E' \subseteq E \where &| E' | = 1. \label{eager-base}\\
+      totalMap \enspace wei&gh \enspace E' \leq totalMap \enspace weigh \enspace \{e_{\Omega}\} \nonumber
+  \end{flalign}
+
+  For the successor case, we also need to show that the solution \(S_{n}\)
+  is maximal compared to all other subsets of size \(n\), for any \(n\). Lastly,
+  by showing that \(S_{n} \subseteq S_{n+1}\), we have proven that the result at
+  \(n\) is maximal compared to all other subsets of that size.
+  Formally, we need to show that
+
+  \begin{flalign}
+    \forall n : Nat, \enspace E' \subseteq E &\where \enspace | E' | = n. \label{eager-succ}\\
+      \quad totalMap \enspace wei&gh \enspace E' \leq totalMap \enspace weigh \enspace S_{n} \nonumber\\
+    \forall n : Nat. \enspace &S_{n} \enspace \subseteq \enspace S_{n+1} \enspace \label{eager-struct}
+  \end{flalign}
+
+  are both true.
+
+  Like said before, (\ref{eager-base}) is easy to show - as there are no other elements in the set initially (we start with
+  the empty set \(\emptyset\)), and we begin with \(E\), we \textit{remove} the largest element
+  \(e_{\Omega}\) from \(E\), and add it to our accumulator. From this initial state, it is easy to show that
+  \(e_{\Omega}\) is larger than any other individual element in \(E - \{e_{\Omega}\}\), and transitively
+  that the set total value of \(\{e_{\Omega}\}\) is larger than any other subset with the size \(1\)
+  (any other singleton set).
+
+  The more general case, where the total of \(S_{n}\) is maximal compared to every other subset of \(E\) with size
+  \(n\), relies on the fact that \(S_{n-1}\) was also maximal compared to every other subset of size \(n-1\), inductively
+  back down to the base case - in that this proof uses structural induction. Assuming we know that \(S_{n-1}\) was
+  maximal, it is easy to show that we \textit{maintain} this maximal state, as for each pivot, we remove the
+  \textit{maximum}, top element in the state, thus retaining maximality when using \(\otimes\).
+
+  More formally, if \(S_{n}\) is the solution set at pivot \(n\), and \(E_{\gamma, n}\) is the \textit{state}
+  of the temporary copy of \(E\) at pivot \(n\), then
+
+  \begin{flalign*}
+    \forall n : Nat.& \enspace S_{n} \subseteq S_{n+1}\\
+    \forall n : Nat.& \enspace E_{\gamma, n} \supseteq E_{\gamma, n+1}\\
+    E_{\gamma, 0} := E, &\quad \quad \quad S_{0} := \emptyset
+  \end{flalign*}
+
+  Should all be obvious. We omit the rest of the proof for brevity.
+\end{proof}
+
+For an asymptotically faster version of \(greedilyMax\), we turn our condition and
+statefulness into a fold:
+
+\begin{flalign*}
+  greedilyMax' \enspace &(e, \enspace i) \enspace := \enspace foldr \enspace go \enspace \emptyset \enspace (sortBy \enspace weigh \enspace e)\\
+  \where \enspace &go \enspace x \enspace acc \enspace := \hif acc \cup \{x\} \in I \hthen acc \cup \{x\}\\
+  &\quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \mathrm{else} \enspace acc
+\end{flalign*}
+
+\section{Bases and Circuits}
+
+\newcommand{\basis}{\lceil S \rceil}
+\newcommand{\circuit}{\hat{\lfloor S \rfloor}}
+
+If we do some analysis on a matroid, we can see clear semantics regarding independent and
+dependent sets, in the context of ordering and inclusion.
+
+Say I have some solution \(\basis \subseteq E \in I\). Then this solution is a
+\textit{basis} if and only if it is the largest subset in \(I\):
+
+\[
+  \forall i \in I. \enspace i \subseteq \basis
+\]
+
+Likewise, we could also say that any additional element added to \(\lceil S \rceil\) is now
+not independent:
+
+\[
+  \forall e \in E - \basis. \enspace \basis \cup \{e\} \not \in I
+\]
+
+We carry this logic orthogonally to \textit{circuits}. A circuit \(\circuit \subseteq E\)
+is the minimal dependent set in our matroid - such that every other dependent set is a
+superset of a circut, and that any smaller subset is independent:
+
+\begin{flalign*}
+  \forall i' \subseteq E \not \in I.& \enspace \circuit \subseteq i'\\
+  \forall s \in \circuit.&            \enspace \circuit - \{s\} \in I
+\end{flalign*}
+
+We use the hat symbol (\textasciicircum) to disambiguate a dependent set from an independent one,
+and use the floor and ceiling operators intuitively as "maximum'' and "minimum''.
+
+Circuts and bases, in their own right, are enough to define matroids. A subset
+\(i \subseteq E\) is independent if and only if it is a subset of \(\basis\),
+and not a superset of \(\circuit\):
+
+\[
+  i \in I \enspace \iff \enspace i \subseteq \basis \enspace \wedge
+                        \enspace i \not \supseteq \circuit
+\]
+
+Likewise, the same proposition can be made for dependent sets:
+
+\[
+  i \not \in I \enspace \iff \enspace i \not \subseteq \basis \enspace \wedge
+                             \enspace i \supseteq \circuit
+\]
+
+Where we evade the hereditary property, while leveraging the definition of the circuit.
+Thus \(\basis\) and \(\circuit\) form a matroid over \(E\).
+
+\section{Ranks}
+
+Now that we have an intuition for how maximal independent sets, and minimal
+dependent sets form a matroid, we can direct our focus toward \textit{ranks} -
+a measure of matroids.
+
+The rank of a matroid is the size of its basis - such that the rank function
+\(r : E \rightarrow \mathbb{N}\) is defined as follows:
+
+\begin{flalign*}
+  r ( E ) := \basis \subseteq E. \enspace | \basis |
+\end{flalign*}
+
+Where \(| \basis |\) is the size of the basis in \(E\). From there, it is easy
+to show that
+
+\[
+  r ( E ) \enspace \leq \enspace | E |
+\]
+
+because \(\basis \subseteq E\). Also, because elements \textit{added} to a set
+may not be independent, we can make a transitivity rule as well:
+
+\[
+  \forall A \subseteq E, \enspace e \in E. \quad r ( A )
+  \enspace \leq \enspace r ( A \cup \{e\})
+  \enspace \leq \enspace r ( A ) + 1
+\]
+
+which follows to
+
+\[
+  \forall A, B, C \where A \subset B \subset C. \quad r ( A )
+  \enspace \leq \enspace r ( B )
+  \enspace \leq \enspace r ( C )
+\]
+
+such that \(r\) is monotonic. Lastly, \(r\) is submodular:
+
+\[
+  \forall A, B \subseteq E. \quad r ( A \cup B) + r ( A \cap B)
+  \enspace \leq \enspace r ( A ) + r ( B )
+\]
+
+Which makes sense in terms of our bases - the basis of \(A \cup B\) \textit{could}
+be only as large as \(A\) or \(B\).
+
+From these, we can see that if \( r ( A ) = | A | \), the \(A\) is its own basis.
+Further, if I have a subset \(A' \subseteq A\) that also is its own basis, then
+that implies their bases are subsets:
+
+\[
+  A' \subseteq A \enspace \wedge \enspace
+  r ( A ) = | A | \enspace \wedge \enspace
+  r ( A' ) = | A' | \enspace \Rightarrow \enspace \basis_{A'} \subseteq \basis_{A}
+\]
+
+Which is orthogonal to \ref{matroid-hereditary}, and if \(\basis_{A}\) is the
+largest basis in \(E\), then we also satisfy \ref{matroid-growth}. Thus, \(r\) forms a matroid over
+\(E\), where elements in \(I\) are formed by self-basis:
+
+\[
+  \forall i \in I. \enspace r ( i ) = | i |
+\]
+
+From this persepctive, we can also intuit \textit{submatroids}, where \((E',r)\)
+is a submatroid of \((E,r)\) iff. \(E' \subseteq E\).
+
+\section{Closure}
+
+
 
 \end{document}
