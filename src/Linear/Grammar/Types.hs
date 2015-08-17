@@ -9,7 +9,7 @@
 module Linear.Grammar.Types where
 
 import Linear.Class
-import Sets.Class
+import Data.Set.Class as Sets
 
 import Data.Char
 import Data.String

@@ -17,7 +17,7 @@
 \begin{document}
 
 
-\title{Generic Matroids}
+\title{Matroids in Type Theory}
 \author{Athan Clark\\ Copyright \copyright \enspace The Grid, 2015}
 
 \maketitle
@@ -379,6 +379,40 @@ is a submatroid of \((E,r)\) iff. \(E' \subseteq E\).
 
 \section{Closure}
 
+Say I have some closure function \(\zeta\) over our ground set \(E\):
 
+\[
+  \zeta \enspace : \enspace Set \enspace \delta \rightarrow Set \enspace \delta
+\]
+
+To properly be a "closure'' operation, \(\zeta\) needs to satisfy the following:
+
+\begin{flalign*}
+  \forall X \subseteq E.    &\quad X \subseteq \zeta ( X )\\
+  \forall X \subseteq E.    &\quad \zeta ( X ) \equiv \zeta (\zeta ( X ))\\
+  \forall X, Y \subseteq E. &\quad X \subseteq Y \Rightarrow \zeta ( X ) \subseteq \zeta ( Y )
+\end{flalign*}
+
+That is, it's an idempotent set operation, homomorphic over collection. If we additionally
+restrict \(\zeta\) to satisfy the Mac Lane-Steinitz exchange property, we also have
+a matroid:
+
+\[
+  \forall a, b \in E, \forall X \subseteq E. \quad
+      b \in \zeta ( X \cup \{a\} ) - \zeta ( X ) \iff
+      a \in \zeta ( X \cup \{b\} ) - \zeta ( X )
+\]
+
+In that, if we have some \(b\) in the difference between the closure of \(X\) and
+the included \(a\), then that \(a\) also exists in the difference when including \(b\).
+
+We can now view the result of the closure operator as the maximum superset of the input
+with the same rank:
+
+\[
+  \zeta \enspace (A \subseteq E) \enspace := \enspace \Big\{ \forall e \in E \where r (A) = r (A \cup \{e\}) \Big\}
+\]
+
+Thus, \(\zeta\) forms a matroid over \(E\).
 
 \end{document}

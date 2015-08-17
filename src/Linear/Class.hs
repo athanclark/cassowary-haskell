@@ -17,6 +17,13 @@ instance CanAddTo Rational Rational Rational where
   (.+.) = (+)
 
 
+class HasZero a where
+  zero' :: a
+
+instance HasZero Rational where
+  zero' = 0
+
+
 class CanSubTo a b r | a b -> r where
   (.-.) :: a -> b -> r
 

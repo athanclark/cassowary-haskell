@@ -1,14 +1,11 @@
 TODO
 ====
 
-- Make `LinVarMap` parametric in its parameter - to ease making weighted coefficients
-    - screws with bland's ratio:
-        - Try making the objective function the only site with weighted coefficients,
-          and the rest of the constraints in the set weighted per-constraint via a tag.
-              - how would substitution affect this?
-        - Can we make `Fractional a => Fractional [a]`?
-- See if you can make a `dualPivot`, to evade the costly transpose
-    - In the bland ratio, choose the `minimum . fmap negate`.
+- Somehow find a compromise between the Map of flat Rationals and a _Trie_ of
+  rationals - the trie would be the embodiment of our tuple-based lexicographic ordering.
+    - Implement operations discussed in main.pdf
+
+- Prove that 
 
 #### ReOptimize
 

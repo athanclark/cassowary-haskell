@@ -21,11 +21,11 @@ Library
                         Linear.Constraints.Tableau
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
-                        Sets.Class
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers
                       , containers
+                      , sets
                       , QuickCheck
                       , quickcheck-instances
 

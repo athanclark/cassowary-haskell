@@ -30,10 +30,11 @@ import Control.Applicative
 
 -- | Most negative coefficient in objective function
 nextBasicPrimal :: ( Ord b
+                   , HasZero b
                    ) => Equality b -> Maybe LinVarName
 nextBasicPrimal (Equ xs _) =
   let x = minimum $ Map.elems $ unLinVarMap xs
-  in if x < 0 -- TODO: zero as a Weight? Reconsider weight semantics
+  in if x < zero' -- TODO
      then fst <$> find (\y -> snd y == x) (Map.toList $ unLinVarMap xs)
      else Nothing
 
@@ -56,6 +57,18 @@ nextRowPrimal col xs
       xs' | xs' == mempty -> Nothing
           | otherwise -> Just $ minimum xs'
 
+-- TODO: weights might break concept of rationals
+-- | Using Bland's method.
+blandRatioPrimal :: ( HasConstant (a b)
+                    , HasCoefficients a
+                    , HasVariables a
+                    , CanDivideTo Rational b Rational
+                    ) => LinVarName -> a b -> Maybe Rational
+blandRatioPrimal col x =
+  let vs = vars x
+  in  Map.lookup col (unLinVarMap vs) >>=
+        \coeff -> Just $ constVal x ./. coeff
+
 nextBasicDual :: ( Num b
                  , Eq b
                  , Ord b
@@ -73,18 +86,6 @@ nextRowDual xs =
   in if constVal x < 0
      then elemIndex x xs
      else Nothing
-
--- TODO: weights might break concept of rationals
--- | Using Bland's method.
-blandRatioPrimal :: ( HasConstant (a b)
-                    , HasCoefficients a
-                    , HasVariables a
-                    , CanDivideTo Rational b Rational
-                    ) => LinVarName -> a b -> Maybe Rational
-blandRatioPrimal col x =
-  let vs = vars x
-  in  Map.lookup col (unLinVarMap vs) >>=
-        \coeff -> Just $ constVal x ./. coeff
 
 -- | Orients equation over some (existing) variable
 -- flatten :: ( HasCoefficients a b

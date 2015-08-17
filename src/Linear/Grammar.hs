@@ -12,7 +12,7 @@ module Linear.Grammar
   ) where
 
 import Linear.Grammar.Types as X
-import Sets.Class
+import Data.Set.Class as Sets
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
