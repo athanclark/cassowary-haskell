@@ -23,9 +23,9 @@ newtype BNFTableau a b = BNFTableau
 
 deriving instance (Ord a) => Monoid (BNFTableau a b)
 
-data Tableau b = Tableau
-  { unrestricted :: (BNFTableau String b, [IneqStdForm b]) -- ^ Unrestricted constraints include at least one of @urVars@.
-  , restricted   :: (BNFTableau LinVarName b, [IneqStdForm b])
+data Tableau c b = Tableau
+  { unrestricted :: (BNFTableau String b,     c (IneqStdForm b)) -- ^ Unrestricted constraints include at least one of @urVars@.
+  , restricted   :: (BNFTableau LinVarName b, c (IneqStdForm b))
   , urVars       :: [String]
   } deriving (Show, Eq)
 
@@ -34,7 +34,7 @@ basicFeasibleSolution (BNFTableau solutions) =
   fmap constVal solutions
 
 -- | Assumes all @VarMain@ to be @>= 0@
-makeRestrictedTableau :: [IneqExpr] -> Tableau Rational
+makeRestrictedTableau :: Functor c => c IneqExpr -> Tableau c Rational
 makeRestrictedTableau xs =
   Tableau ( BNFTableau Map.empty
           , mempty )
@@ -42,7 +42,7 @@ makeRestrictedTableau xs =
           , makeSlackVars $ standardForm <$> xs )
           []
 
-makeUnrestrictedTableau :: [IneqExpr] -> Tableau Rational
+makeUnrestrictedTableau :: Functor c => c IneqExpr -> Tableau c Rational
 makeUnrestrictedTableau xs =
   Tableau ( BNFTableau Map.empty
           , makeSlackVars $ standardForm <$> xs )

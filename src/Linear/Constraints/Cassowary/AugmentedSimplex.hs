@@ -16,9 +16,10 @@ import Linear.Grammar
 import Linear.Class
 
 import Data.List (elemIndex)
-import Data.Maybe
+import Data.Maybe hiding (mapMaybe)
 import Data.Monoid
 import Data.Foldable
+import Data.Witherable
 import Data.Function (on)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -33,7 +34,7 @@ nextBasicPrimal :: ( Ord b
                    , HasZero b
                    ) => Equality b -> Maybe LinVarName
 nextBasicPrimal (Equ xs _) =
-  let x = minimum $ Map.elems $ unLinVarMap xs
+  let x = minimum xs
   in if x < zero' -- TODO
      then fst <$> find (\y -> snd y == x) (Map.toList $ unLinVarMap xs)
      else Nothing
@@ -44,7 +45,11 @@ nextRowPrimal :: ( CanDivideTo Rational b Rational
                  , HasCoefficients a
                  , HasVariables a
                  , Eq (a b)
-                 ) => LinVarName -> [a b] -> Maybe Int
+                 , Functor c
+                 , Foldable c
+                 , Witherable c
+                 , Monoid (c (a b))
+                 ) => LinVarName -> c (a b) -> Maybe Int
 nextRowPrimal col xs
   | xs == mempty = Nothing
   | otherwise = case smallest of

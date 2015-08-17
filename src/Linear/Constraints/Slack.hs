@@ -5,7 +5,7 @@
 module Linear.Constraints.Slack where
 
 import Linear.Grammar
-import Sets.Class
+import Data.Set.Class as Sets
 
 import qualified Data.Map as Map
 import qualified Data.IntMap as IMap
