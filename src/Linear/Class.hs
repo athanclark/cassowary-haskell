@@ -24,6 +24,13 @@ instance HasZero Rational where
   zero' = 0
 
 
+class HasOne a where
+  one' :: a
+
+instance HasOne Rational where
+  one' = 1
+
+
 class CanSubTo a b r | a b -> r where
   (.-.) :: a -> b -> r
 

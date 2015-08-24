@@ -4,6 +4,7 @@
   , StandaloneDeriving
   , GeneralizedNewtypeDeriving
   , KindSignatures
+  , DeriveFoldable
   #-}
 
 module Linear.Grammar.Types where
@@ -95,17 +96,33 @@ instance CanMultiplyTo Rational LinAst LinAst where
 
 -- * Variables
 
+data ErrorSign = ErrNeg | ErrPos
+  deriving (Show, Eq, Ord)
+
+instance Arbitrary ErrorSign where
+  arbitrary = boolToErrNeg <$> arbitrary
+
+isErrPos :: ErrorSign -> Bool
+isErrPos ErrPos = True
+isErrPos _ = False
+
+isErrNeg :: ErrorSign -> Bool
+isErrNeg = not . isErrPos
+
+boolToErrNeg :: Bool -> ErrorSign
+boolToErrNeg b = if b then ErrPos else ErrNeg
+
 data LinVarName =
     VarMain  {unVarMain :: String}
   | VarSlack {unVarSlack :: Integer}
-  | VarError {unVarError :: String, unVarErrorSign :: Bool}
+  | VarError {unVarError :: String, unVarErrorSign :: ErrorSign}
   deriving (Show, Eq, Ord)
 
 unLinVarName :: LinVarName -> String
 unLinVarName (VarMain n)  = n
 unLinVarName (VarSlack n) = show n
-unLinVarName (VarError n b) = if b then "error_" ++ n ++ "_+"
-                                   else "error_" ++ n ++ "_-"
+unLinVarName (VarError n b) = if isErrPos b then "error_" ++ n ++ "_+"
+                                            else "error_" ++ n ++ "_-"
 
 mapLinVarName :: (String -> String) -> LinVarName -> LinVarName
 mapLinVarName f (VarMain n)  = VarMain $ f n
@@ -148,7 +165,7 @@ hasCoeff x (LinVar _ y) = x == y
 -- | Variables with coefficients
 newtype LinVarMap b = LinVarMap
   { unLinVarMap :: Map.Map LinVarName b
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Foldable)
 
 coeffs :: LinVarMap b -> [b]
 coeffs (LinVarMap m) = Map.elems m

@@ -10,6 +10,7 @@ import Linear.Constraints.Slack
 import Linear.Grammar
 
 import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
 import Data.List (nub)
 import Data.Maybe
 import Data.Monoid
@@ -23,9 +24,9 @@ newtype BNFTableau a b = BNFTableau
 
 deriving instance (Ord a) => Monoid (BNFTableau a b)
 
-data Tableau c b = Tableau
-  { unrestricted :: (BNFTableau String b,     c (IneqStdForm b)) -- ^ Unrestricted constraints include at least one of @urVars@.
-  , restricted   :: (BNFTableau LinVarName b, c (IneqStdForm b))
+data Tableau b = Tableau
+  { unrestricted :: (BNFTableau String b,     IntMap.IntMap (IneqStdForm b)) -- ^ Unrestricted constraints include at least one of @urVars@.
+  , restricted   :: (BNFTableau LinVarName b, IntMap.IntMap (IneqStdForm b))
   , urVars       :: [String]
   } deriving (Show, Eq)
 
@@ -34,7 +35,7 @@ basicFeasibleSolution (BNFTableau solutions) =
   fmap constVal solutions
 
 -- | Assumes all @VarMain@ to be @>= 0@
-makeRestrictedTableau :: Functor c => c IneqExpr -> Tableau c Rational
+makeRestrictedTableau :: IntMap.IntMap IneqExpr -> Tableau Rational
 makeRestrictedTableau xs =
   Tableau ( BNFTableau Map.empty
           , mempty )
@@ -42,7 +43,7 @@ makeRestrictedTableau xs =
           , makeSlackVars $ standardForm <$> xs )
           []
 
-makeUnrestrictedTableau :: Functor c => c IneqExpr -> Tableau c Rational
+makeUnrestrictedTableau :: IntMap.IntMap IneqExpr -> Tableau Rational
 makeUnrestrictedTableau xs =
   Tableau ( BNFTableau Map.empty
           , makeSlackVars $ standardForm <$> xs )
@@ -50,22 +51,25 @@ makeUnrestrictedTableau xs =
           , mempty )
           (concatMap names xs)
 
+-- | Basic Feasible Solution
 remainingBasics :: (Tableau Rational, Equality Rational) -> Map.Map String Rational
 remainingBasics (Tableau (BNFTableau bus,us) (BNFTableau sus,ss) _, f) =
   let mkNew :: ( HasVariables a
                , HasConstant (a Rational)
-               ) => a Rational -> [(String, Maybe Rational)]
+               ) => a Rational -> [(String, Maybe Rational)] -- basic feasible pairs
       mkNew x = Map.toList $ Map.mapKeys unLinVarName $
         const (Just $ constVal x) <$> unLinVarMap (vars x :: LinVarMap Rational)
       allVars = foldr go mempty $ concatMap mkNew $
-                  EquStd f : us ++ Map.elems bus ++ ss ++ Map.elems sus
-      allVars' = fromJust <$> Map.filter isJust allVars
-  in Map.filter (/= 0) allVars'
+        EquStd f : IntMap.elems us
+                ++ Map.elems bus
+                ++ IntMap.elems ss
+                ++ Map.elems sus -- all constraints
+  in fromJust <$> Map.filter isJust allVars
   where
     go :: (String, Maybe Rational)
        -> Map.Map String (Maybe Rational)
        -> Map.Map String (Maybe Rational)
     go (k,v) acc = case Map.lookup k acc of
       Just (Just _) -> Map.update (const $ Just Nothing) k acc
-      Just Nothing -> acc
+      Just Nothing -> acc -- need to get unique entities
       Nothing -> Map.insert k v acc

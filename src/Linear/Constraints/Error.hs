@@ -1,5 +1,10 @@
+{-# LANGUAGE
+    FlexibleContexts
+  #-}
+
 module Linear.Constraints.Error where
 
+import Linear.Class
 import Linear.Constraints.Tableau
 import Linear.Constraints.Cassowary
 import Linear.Grammar
@@ -14,24 +19,24 @@ import Control.Applicative
 
 -- * Error Variables
 
-makeErrorVars :: (Tableau, Equality) -> (Tableau, Equality)
+-- makeErrorVars :: (Tableau b, Equality b) -> (Tableau b, Equality b)
 makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
-  let toSub = Map.fromList $ map (\n ->
-                ( VarMain n
+  let toSub = Map.fromList $ fmap (\n ->
+                ( VarMain n -- replace each Main var with its ErrVar equation
                 , EquStd $ Equ (LinVarMap $ Map.fromList
-                                  [ (VarError n True, 1)
-                                  , (VarError n False, -1)
+                                  [ (VarError n ErrPos, one')
+                                  , (VarError n ErrNeg, (-1 :: Rational) .*. one')
                                   ]) 0
                 )) u
-      newBasic = Map.fromList $ mapMaybe (\u' ->
-        (\a -> ( VarError u' True
-               , mapVars (\(LinVarMap xs) -> LinVarMap $ -- basic in both error vars
-                    xs `union` Map.singleton (VarError u' False) 1) a
-               )) <$> Map.lookup u' bus) u
-      bus' = bus `union` Map.mapKeys (\(VarMain n) -> n) toSub
-      us' = Map.foldWithKey (\k a acc -> fmap (substitute k a) acc) us toSub
-      sus' = let basicRestricted = Map.foldWithKey (\k a acc -> fmap (substitute k a) acc) sus toSub
-             in basicRestricted `union` newBasic
-      ss' = Map.foldWithKey (\k a acc -> fmap (substitute k a) acc) ss toSub
+      newsus = Map.fromList $ mapMaybe (\u' ->
+        (\equation -> ( VarError u' ErrPos -- basic in the positive err var
+                      , mapVars (\(LinVarMap xs) -> LinVarMap $ -- basic in both error vars
+                          xs `union` Map.singleton (VarError u' ErrNeg) one') equation -- because 0 = 1 + -1 ~ 1 = 1
+               )) <$> Map.lookup u' bus) u -- "when this unrestricted var is basic..."
+      bus' = bus `union` Map.mapKeys (\(VarMain n) -> n) toSub -- unrestricted
+      us' = Map.foldWithKey (\k a -> fmap $ substitute k a) us toSub -- post-substitution
+      ss' = Map.foldWithKey (\k a -> fmap $ substitute k a) ss toSub
+      sus' = let basicRestricted = Map.foldWithKey (\k a -> fmap $ substitute k a) sus toSub
+             in basicRestricted `union` newsus
       f' = unEquStd $ Map.foldWithKey substitute (EquStd f) toSub
   in (Tableau (BNFTableau bus', us') (BNFTableau sus', ss') u, f')

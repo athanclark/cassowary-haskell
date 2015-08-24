@@ -62,6 +62,9 @@ instance Monoid (Weight Rational) where
 instance HasZero (Weight Rational) where
   zero' = Weight []
 
+instance HasOne (Weight Rational) where
+  one' = Weight $ repeat 1
+
 instance CanSubTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .-. (Weight y) = Weight $ alignWith (onBoth (.-.)) x y
 
