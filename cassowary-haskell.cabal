@@ -27,6 +27,7 @@ Library
                       , containers
                       , witherable
                       , sets
+                      , composition
                       , QuickCheck
                       , quickcheck-instances
 

@@ -48,56 +48,73 @@ nextRowPrimal :: ( CanDivideTo Rational b Rational
                  , HasVariables a
                  , Eq (c (a b))
                  , Eq (c Rational)
-                 , Functor c
+                 , Functor c -- TODO: reduce type sig
                  , Foldable c
                  , Witherable c
                  , Monoid (c (a b))
                  , Monoid (c Rational)
+                 , HasZero b
+                 , Ord b
                  ) => LinVarName -> c (a b) -> Maybe Int
 nextRowPrimal col xs | xs == mempty = Nothing
-                     | otherwise = case smallest of
-    Nothing -> Nothing
-    _ -> runST $ do i <- newSTRef 0
-                    foldlM (go i) Nothing $ fmap (blandRatioPrimal col) xs
+                     | otherwise = smallest >> index
   where
+    index :: Maybe Int
+    index = elemIndex smallest $ toList $ fmap (blandRatioPrimal col) xs
     smallest :: Maybe Rational
     smallest = case mapMaybe (blandRatioPrimal col) xs of
       xs' | xs' == mempty -> Nothing
           | otherwise     -> Just $ minimum xs'
-    go :: STRef s Int -> Maybe Int -> Maybe Rational -> ST s (Maybe Int)
-    go i acc x | smallest == x = do k <- readSTRef i
-                                    writeSTRef i $ k+1
-                                    return $ Just k
-               | otherwise = return acc
+
 
 -- | Bland's method.
 blandRatioPrimal :: ( CanDivideTo Rational b Rational
                     , HasConstant (a b)
                     , HasCoefficients a
                     , HasVariables a
+                    , HasZero b
+                    , Ord b
                     ) => LinVarName -> a b -> Maybe Rational
-blandRatioPrimal col x =
-  let vs = vars x
-  in  Map.lookup col (unLinVarMap vs) >>=
-        \coeff -> Just $ constVal x ./. coeff
+blandRatioPrimal col x = do
+  coeff <- Map.lookup col (unLinVarMap $ vars x)
+  if coeff < zero' then return $ constVal x ./. coeff
+                   else Nothing
 
-nextBasicDual :: ( Num b
-                 , Eq b
-                 , Ord b
-                 , Fractional b
-                 ) => Equality b -> IneqStdForm b -> Maybe Int
-nextBasicDual obj xs = undefined
+nextBasicDual :: ( Ord b
+                 , CanDivideTo b b Rational
+                 , HasZero b
+                 , HasVariables a
+                 ) => Equality b -> a b -> LinVarName
+nextBasicDual o x =
+  let osMap = unLinVarMap $ vars o
+      xsMap = unLinVarMap $ vars x
+      allVars = Map.keysSet osMap <> Map.keysSet xsMap
+  in  fst <$> minimumBy (compare `on` snd) $
+        Set.map (\col -> (col,blandRatioDual col o x)) allVars
 
 
-nextRowDual :: ( Ord b
-               , Eq (a b)
+blandRatioDual :: ( HasZero b
+                  , Ord b
+                  , HasVariables a
+                  , CanDivideTo b b Rational
+                  ) => LinVarName -> Equality b -> a b -> Maybe Rational
+blandRatioDual col o x = do
+  o' <- Map.lookup col (unLinVarMap $ vars o)
+  x' <- Map.lookup col (unLinVarMap $ vars x)
+  if x' > zero' then return $ o' ./. x'
+                else Nothing
+
+
+nextRowDual :: ( Eq (a b)
                , HasConstant (a b)
-               ) => [a b] -> Maybe Int
+               , Foldable c
+               ) => c (a b) -> Maybe Int
 nextRowDual xs =
   let x = minimumBy (compare `on` constVal) xs
-  in if constVal x < 0
-     then elemIndex x xs
-     else Nothing
+  in  if constVal x < zero'
+      then elemIndex x $ toList xs
+      else Nothing
+
 
 -- | Orients equation over some (existing) variable
 flatten :: ( HasCoefficients a
