@@ -4,6 +4,7 @@
   , TypeSynonymInstances
   , MultiParamTypeClasses
   , GADTs
+  , TupleSections
   #-}
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
@@ -43,18 +44,18 @@ nextBasicPrimal (Equ xs _) =
 
 -- | Finds the index of the next row to pivot on
 nextRowPrimal :: ( CanDivideTo Rational b Rational
+                 , HasZero b
                  , HasConstant (a b)
                  , HasCoefficients a
                  , HasVariables a
+                 , Ord b
                  , Eq (c (a b))
                  , Eq (c Rational)
-                 , Functor c -- TODO: reduce type sig
+                 , Functor c
                  , Foldable c
                  , Witherable c
                  , Monoid (c (a b))
                  , Monoid (c Rational)
-                 , HasZero b
-                 , Ord b
                  ) => LinVarName -> c (a b) -> Maybe Int
 nextRowPrimal col xs | xs == mempty = Nothing
                      | otherwise = smallest >> index
@@ -84,20 +85,29 @@ nextBasicDual :: ( Ord b
                  , CanDivideTo b b Rational
                  , HasZero b
                  , HasVariables a
-                 ) => Equality b -> a b -> LinVarName
+                 ) => Equality b -> a b -> Maybe LinVarName
 nextBasicDual o x =
   let osMap = unLinVarMap $ vars o
       xsMap = unLinVarMap $ vars x
       allVars = Map.keysSet osMap <> Map.keysSet xsMap
-  in  fst <$> minimumBy (compare `on` snd) $
-        Set.map (\col -> (col,blandRatioDual col o x)) allVars
+  in if Set.size allVars > 0
+     then let n = minimumBy (compare `on` fst) $ trim $
+                    Set.map (\col -> (,col) <$> blandRatioDual col o x) allVars
+          in if fst n > zero' then return $ snd n
+                              else Nothing
+     else Nothing
+  where
+    trim = foldr go Set.empty
+      where
+        go Nothing acc = acc
+        go (Just a) acc = Set.insert a acc
 
 
-blandRatioDual :: ( HasZero b
-                  , Ord b
+blandRatioDual :: ( Ord b
+                  , CanDivideTo b b r
+                  , HasZero b
                   , HasVariables a
-                  , CanDivideTo b b Rational
-                  ) => LinVarName -> Equality b -> a b -> Maybe Rational
+                  ) => LinVarName -> Equality b -> a b -> Maybe r
 blandRatioDual col o x = do
   o' <- Map.lookup col (unLinVarMap $ vars o)
   x' <- Map.lookup col (unLinVarMap $ vars x)
@@ -127,25 +137,25 @@ flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
   Just y  -> mapConst (./. y) $ mapCoeffVals (./. y) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
-substitute :: ( Eq b2
-              , CanMultiplyTo b2 b b2
-              , CanMultiplyTo b2 Rational b
-              , CanMultiplyTo Rational b2 b1
-              , CanSubTo Rational b1 Rational
-              , HasZero b2
-              , CanAddTo b2 b2 b2
-              , HasConstant (a b2)
-              , HasConstant (a1 b2)
+
+substitute :: ( Eq b1
+              , CanMultiplyTo b1 b1 b1
+              , CanMultiplyTo Rational b1 b
+              , CanSubTo b1 b1 b1
+              , CanSubTo Rational b Rational
+              , HasZero b1
+              , HasConstant (a b1)
+              , HasConstant (a1 b1)
               , HasCoefficients a
               , HasVariables a
               , HasVariables a1
-              ) => LinVarName -> a b2 -> a1 b2 -> a1 b2
+              ) => LinVarName -> a b1 -> a1 b1 -> a1 b1
 substitute col focal target =
-  case Map.lookup col $ unLinVarMap $ vars target of -- TODO: make right-biased mult between two Weights
-    Just coeff -> let focal' = mapCoeffVals (\x -> x .*. coeff .*. (-1 :: Rational)) focal
-                      go (LinVarMap xs) = let xs' = Map.unionWith (.+.) xs (unLinVarMap $ vars focal')
+  case Map.lookup col $ unLinVarMap $ vars target of
+    Just coeff -> let focal' = mapCoeffVals (.*. coeff) focal
+                      go (LinVarMap xs) = let xs' = Map.unionWith (.-.) xs (unLinVarMap $ vars focal')
                                           in LinVarMap $ Map.filter (/= zero') xs'
-                  in mapConst (\x -> x .-. (constVal focal' .*. coeff)) $ mapVars go target
+                  in mapConst (.-. (constVal focal' .*. coeff)) $ mapVars go target
     Nothing -> target
 
 
@@ -153,40 +163,59 @@ substitute col focal target =
 pivotPrimal :: ( Ord b
                , CanDivideTo b b b
                , CanDivideTo Rational b Rational
-               , CanMultiplyTo b b1 b
-               , CanMultiplyTo b Rational b1
-               , CanMultiplyTo Rational b b2
-               , CanSubTo Rational b2 Rational
+               , CanMultiplyTo b b b
+               , CanMultiplyTo Rational b b1
+               , CanSubTo b b b
+               , CanSubTo Rational b1 Rational
                , HasZero b
-               , CanAddTo b b b
                ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
-pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) =
-  let mCol = nextBasicPrimal f
-      mRow = mCol >>= (`nextRowPrimal` c_s)
-  in case (mCol, mRow) of
-        (Just col, Just row) ->
-          let focal = flatten col $ fromJust $ IntMap.lookup row c_s
-              focal' = mapVars (LinVarMap . Map.delete col . unLinVarMap) focal
-          in Just ( Tableau c_u
-                      ( BNFTableau $ Map.insert col focal' $
-                          fmap (substitute col focal) basicc_s
-                      , substitute col focal <$> IntMap.delete row c_s
-                      ) u
-                  , unEquStd $ substitute col focal $ EquStd f
-                  )
-        _ -> Nothing
+pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
+  col      <- nextBasicPrimal f
+  row      <- nextRowPrimal col c_s
+  focalRaw <- IntMap.lookup row c_s
+  let focal = flatten col focalRaw
+      focal' = mapVars (LinVarMap . Map.delete col . unLinVarMap) focal
+  return ( Tableau c_u
+              ( BNFTableau $ Map.insert col focal' $
+                  fmap (substitute col focal) basicc_s
+              , substitute col focal <$> IntMap.delete row c_s
+              ) u
+         , substitute col focal f
+         )
 
+-- | Performs a single pivot
+-- pivotDual :: ( Ord b
+--              , CanDivideTo b b b
+--              , CanDivideTo Rational b Rational
+--              , CanMultiplyTo b b b
+--              , CanMultiplyTo Rational b b1
+--              , CanSubTo b b b
+--              , CanSubTo Rational b1 Rational
+--              , HasZero b
+--              ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
+pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
+  row      <- nextRowDual c_s
+  focalRaw <- IntMap.lookup row c_s
+  col      <- nextBasicDual f focalRaw
+  let focal = flatten col focalRaw
+      focal' = mapVars (LinVarMap . Map.delete col . unLinVarMap) focal
+  return ( Tableau c_u
+              ( BNFTableau $ Map.insert col focal' $
+                  fmap (substitute col focal) basicc_s
+              , substitute col focal <$> IntMap.delete row c_s
+              ) u
+         , substitute col focal f
+         )
 
 -- | Simplex optimization
 simplexPrimal :: ( Ord b
                  , CanDivideTo b b b
                  , CanDivideTo Rational b Rational
-                 , CanMultiplyTo b b1 b
-                 , CanMultiplyTo b Rational b1
-                 , CanMultiplyTo Rational b b2
-                 , CanSubTo Rational b2 Rational
+                 , CanMultiplyTo b b b
+                 , CanMultiplyTo Rational b b1
+                 , CanSubTo b b b
+                 , CanSubTo Rational b1 Rational
                  , HasZero b
-                 , CanAddTo b b b
                  ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexPrimal x =
   case pivotPrimal x of

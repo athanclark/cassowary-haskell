@@ -5,10 +5,16 @@ TODO
   rationals - the trie would be the embodiment of our tuple-based lexicographic ordering.
     - Implement operations discussed in main.pdf
 
-- Prove that 
+- Prove that
 
-#### ReOptimize
+## ReOptimize
 
 - Pushes unrestricted equations to restricted, by the `err_x_+`, `err_x_-` substitution
 - Checks new edit constraints, to see if their constant value can just be substituted
     - takes coefficients from objective function during re-assignment? line 5-10 p. 18
+
+## Arithmetic Use Sites
+
+### Division
+- `blandRatioPrimal` and `blandRatioDual`
+    - `nextRowPrimal` and `nextBasicDual`
