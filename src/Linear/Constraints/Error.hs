@@ -27,10 +27,11 @@ makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
         return ( VarMain n -- from Main var to its ErrVar equation
                , EquStd $ Equ (LinVarMap $ Map.fromList
                     [ (VarError n ErrPos, one') -- TODO: Error variables for /a/ weight, or all weights?
-                    , (VarError n ErrNeg, (-1 :: Rational) .*. one')
-                    ]) 0
+                    , (VarError n ErrNeg, {- (-1 :: Rational) .*. -} one')
+                    ]) 0                   -- cause of ambiguity ^
                )
-      newsus = Map.fromList $ mapMaybe (\u' -> do -- # Restricts unrestricted vars
+      newsus = Map.fromList $ mapMaybe (\u' -> do
+        -- # Restricts unrestricted vars
         equation <- Map.lookup u' bus
         return ( VarError u' ErrPos
                , mapVars (\(LinVarMap xs) -> LinVarMap $
