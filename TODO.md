@@ -16,11 +16,16 @@ TODO
 ## Arithmetic Use Sites
 
 ### Division
-- `blandRatioPrimal` (`Rational b Rational`) and `blandRatioDual` (`b b Rational`)
-- `flatten` (`b b b` and `Rational b Rational`)
+- `blandRatioPrimal` (`Rational b Rational`) and `blandRatioDual` (`b b Rational`) -
+  primal is "constant divided by coefficient", and dual is "objective coefficient
+  divided by coefficient". __This may be incorrect__.
+- `flatten` (`b b b` and `Rational b Rational`) - magnify an equation's coefficients
+  and constant.
 
 ### Multiplication
-- `substitute` (`b b b` and `Rational b b`)
+- `substitute` (`b b b` and `Rational b b`) - magnify an equation's coefficients and
+  constant.
 
 ### Substitution
-- `substitute` (`b b b` and `Rational b Rational`)
+- `substitute` (`b b b` and `Rational b Rational`) - remove a `b` amount from an
+  equation's coefficients and constant.
