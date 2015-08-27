@@ -16,5 +16,11 @@ TODO
 ## Arithmetic Use Sites
 
 ### Division
-- `blandRatioPrimal` and `blandRatioDual`
-    - `nextRowPrimal` and `nextBasicDual`
+- `blandRatioPrimal` (`Rational b Rational`) and `blandRatioDual` (`b b Rational`)
+- `flatten` (`b b b` and `Rational b Rational`)
+
+### Multiplication
+- `substitute` (`b b b` and `Rational b b`)
+
+### Substitution
+- `substitute` (`b b b` and `Rational b Rational`)

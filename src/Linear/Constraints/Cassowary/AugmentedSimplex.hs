@@ -104,10 +104,10 @@ nextBasicDual o x =
 
 
 blandRatioDual :: ( Ord b
-                  , CanDivideTo b b r
+                  , CanDivideTo b b Rational
                   , HasZero b
                   , HasVariables a
-                  ) => LinVarName -> Equality b -> a b -> Maybe r
+                  ) => LinVarName -> Equality b -> a b -> Maybe Rational
 blandRatioDual col o x = do
   o' <- Map.lookup col (unLinVarMap $ vars o)
   x' <- Map.lookup col (unLinVarMap $ vars x)
@@ -138,18 +138,18 @@ flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
 
-substitute :: ( Eq b1
-              , CanMultiplyTo b1 b1 b1
-              , CanMultiplyTo Rational b1 b
-              , CanSubTo b1 b1 b1
+substitute :: ( Eq b
+              , CanMultiplyTo b b b
+              , CanMultiplyTo Rational b b
+              , CanSubTo b b b
               , CanSubTo Rational b Rational
-              , HasZero b1
-              , HasConstant (a b1)
-              , HasConstant (a1 b1)
+              , HasZero b
+              , HasConstant (a b)
+              , HasConstant (a1 b)
               , HasCoefficients a
               , HasVariables a
               , HasVariables a1
-              ) => LinVarName -> a b1 -> a1 b1 -> a1 b1
+              ) => LinVarName -> a b -> a1 b -> a1 b
 substitute col focal target =
   case Map.lookup col $ unLinVarMap $ vars target of
     Just coeff -> let focal' = mapCoeffVals (.*. coeff) focal
@@ -164,9 +164,9 @@ pivotPrimal :: ( Ord b
                , CanDivideTo b b b
                , CanDivideTo Rational b Rational
                , CanMultiplyTo b b b
-               , CanMultiplyTo Rational b b1
+               , CanMultiplyTo Rational b b
                , CanSubTo b b b
-               , CanSubTo Rational b1 Rational
+               , CanSubTo Rational b Rational
                , HasZero b
                ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
 pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
@@ -212,9 +212,9 @@ simplexPrimal :: ( Ord b
                  , CanDivideTo b b b
                  , CanDivideTo Rational b Rational
                  , CanMultiplyTo b b b
-                 , CanMultiplyTo Rational b b1
+                 , CanMultiplyTo Rational b b
                  , CanSubTo b b b
-                 , CanSubTo Rational b1 Rational
+                 , CanSubTo Rational b Rational
                  , HasZero b
                  ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexPrimal x =
