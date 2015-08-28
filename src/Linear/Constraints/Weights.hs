@@ -80,5 +80,14 @@ instance CanMultiplyTo (Weight Rational) Rational (Weight Rational) where
 instance CanMultiplyTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .*. y = sum x .*. y
 
+-- TODO: Fix fundep, also is [x] ./. [y] ~ zipWith ./. ?
+-- empty lists ~ 0, remember. [Maybe x] as a result? Needs lexicographic ordering :\
+-- [] ~ [Nothing]
+
 instance CanDivideTo Rational (Weight Rational) Rational where
   x ./. (Weight y) = x ./. sum y
+
+instance CanDivideTo Rational (Weight Rational) (Weight Rational) where
+  x ./. (Weight y) = Weight $ fmap (x ./.) y
+
+instance CanDivideTo (Weight Rational) (Weight Rational) (Weight Rational) where

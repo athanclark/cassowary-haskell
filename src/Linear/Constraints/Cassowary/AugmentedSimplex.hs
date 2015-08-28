@@ -43,46 +43,45 @@ nextBasicPrimal (Equ xs _) =
      else Nothing
 
 -- | Finds the index of the next row to pivot on
-nextRowPrimal :: ( CanDivideTo Rational b Rational
+nextRowPrimal :: ( CanDivideTo Rational b b
                  , HasZero b
                  , HasConstant (a b)
                  , HasCoefficients a
                  , HasVariables a
                  , Ord b
                  , Eq (c (a b))
-                 , Eq (c Rational)
+                 , Eq (c b)
                  , Functor c
                  , Foldable c
                  , Witherable c
                  , Monoid (c (a b))
-                 , Monoid (c Rational)
+                 , Monoid (c b)
                  ) => LinVarName -> c (a b) -> Maybe Int
 nextRowPrimal col xs | xs == mempty = Nothing
                      | otherwise = smallest >> index
   where
     index :: Maybe Int
     index = elemIndex smallest $ toList $ fmap (blandRatioPrimal col) xs
-    smallest :: Maybe Rational
     smallest = case mapMaybe (blandRatioPrimal col) xs of
       xs' | xs' == mempty -> Nothing
           | otherwise     -> Just $ minimum xs'
 
 
 -- | Bland's method.
-blandRatioPrimal :: ( CanDivideTo Rational b Rational
+blandRatioPrimal :: ( CanDivideTo Rational b b
                     , HasConstant (a b)
                     , HasCoefficients a
                     , HasVariables a
                     , HasZero b
                     , Ord b
-                    ) => LinVarName -> a b -> Maybe Rational
+                    ) => LinVarName -> a b -> Maybe b
 blandRatioPrimal col x = do
   coeff <- Map.lookup col (unLinVarMap $ vars x)
   if coeff < zero' then return $ constVal x ./. coeff
                    else Nothing
 
 nextBasicDual :: ( Ord b
-                 , CanDivideTo b b Rational
+                 , CanDivideTo b b b
                  , HasZero b
                  , HasVariables a
                  ) => Equality b -> a b -> Maybe LinVarName
@@ -104,10 +103,10 @@ nextBasicDual o x =
 
 
 blandRatioDual :: ( Ord b
-                  , CanDivideTo b b Rational
+                  , CanDivideTo b b b
                   , HasZero b
                   , HasVariables a
-                  ) => LinVarName -> Equality b -> a b -> Maybe Rational
+                  ) => LinVarName -> Equality b -> a b -> Maybe b
 blandRatioDual col o x = do
   o' <- Map.lookup col (unLinVarMap $ vars o)
   x' <- Map.lookup col (unLinVarMap $ vars x)
@@ -130,8 +129,8 @@ nextRowDual xs =
 flatten :: ( HasCoefficients a
            , HasVariables a
            , HasConstant (a b)
-           , CanDivideTo Rational b Rational
            , CanDivideTo b b b
+           , CanDivideTo Rational b Rational
            ) => LinVarName -> a b -> a b
 flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
   Just y  -> mapConst (./. y) $ mapCoeffVals (./. y) x
@@ -162,6 +161,7 @@ substitute col focal target =
 -- | Performs a single pivot
 pivotPrimal :: ( Ord b
                , CanDivideTo b b b
+               , CanDivideTo Rational b b
                , CanDivideTo Rational b Rational
                , CanMultiplyTo b b b
                , CanMultiplyTo Rational b b
@@ -210,6 +210,7 @@ pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
 -- | Simplex optimization
 simplexPrimal :: ( Ord b
                  , CanDivideTo b b b
+                 , CanDivideTo Rational b b
                  , CanDivideTo Rational b Rational
                  , CanMultiplyTo b b b
                  , CanMultiplyTo Rational b b
