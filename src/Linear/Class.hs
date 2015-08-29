@@ -49,7 +49,7 @@ instance CanMultiplyTo Rational Rational Rational where
   (.*.) = (*)
 
 
-class CanDivideTo a b r | a b -> r where
+class CanDivideTo a b r where
   (./.) :: a -> b -> r
 
 infixl 9 ./.

@@ -18,8 +18,7 @@ TODO
 ### Division
 - `blandRatioPrimal` (`Rational b b`) and `blandRatioDual` (`b b b`) -
   primal is "constant divided by coefficient", and dual is "objective coefficient
-  divided by coefficient". __This may be incorrect__ - lexicographic ordering of
-  the ratio may apply.
+  divided by coefficient".
 - `flatten` (`b b b` and `Rational b Rational`) - magnify an equation's coefficients
   and constant.
 

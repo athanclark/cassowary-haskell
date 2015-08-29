@@ -84,10 +84,36 @@ instance CanMultiplyTo (Weight Rational) (Weight Rational) (Weight Rational) whe
 -- empty lists ~ 0, remember. [Maybe x] as a result? Needs lexicographic ordering :\
 -- [] ~ [Nothing]
 
+divRWR :: Rational -> Weight Rational -> Rational
+divRWR x (Weight ys) = x / sum ys
+
+divRWRMaybe :: Rational -> Weight Rational -> Maybe Rational
+divRWRMaybe x (Weight ys) | sum ys == 0 = Nothing
+                          | otherwise   = Just $ x / sum ys
+
 instance CanDivideTo Rational (Weight Rational) Rational where
-  x ./. (Weight y) = x ./. sum y
+  (./.) = divRWR
+
+divRWW :: Rational -> Weight Rational -> Weight Rational
+divRWW x (Weight ys) = Weight $ fmap (x /) ys
+
+divRWWMaybe :: Rational -> Weight Rational -> Weight (Maybe Rational)
+divRWWMaybe x (Weight ys) = Weight $ fmap go ys
+  where
+    go y | y == 0    = Nothing
+         | otherwise = Just $ x / y
 
 instance CanDivideTo Rational (Weight Rational) (Weight Rational) where
-  x ./. (Weight y) = Weight $ fmap (x ./.) y
+  (./.) = divRWW
+
+divWWW :: Weight Rational -> Weight Rational -> Weight Rational
+divWWW (Weight xs) (Weight ys) = Weight $ zipWith (/) (xs ++ [0..]) ys
+
+divWWWMaybe :: Weight Rational -> Weight Rational -> Weight (Maybe Rational)
+divWWWMaybe (Weight xs) (Weight ys) = Weight $ zipWith go (xs ++ [0..]) ys
+  where
+    go x y | y == 0    = Nothing
+           | otherwise = Just $ x / y
 
 instance CanDivideTo (Weight Rational) (Weight Rational) (Weight Rational) where
+  (./.) = divWWW
