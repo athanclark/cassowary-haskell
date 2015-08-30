@@ -30,6 +30,12 @@ class HasOne a where
 instance HasOne Rational where
   one' = 1
 
+class HasNegOne a where
+  negone' :: a
+
+instance HasNegOne Rational where
+  negone' = -1
+
 
 class CanSubTo a b r | a b -> r where
   (.-.) :: a -> b -> r

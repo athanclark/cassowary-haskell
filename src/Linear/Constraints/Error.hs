@@ -11,11 +11,8 @@ import Linear.Grammar
 import Data.Set.Class as Sets
 
 import qualified Data.Map as Map
-import qualified Data.IntMap as IMap
-import qualified Data.Set as Set
 import Data.Maybe
 import Data.Composition
-import Control.Applicative
 
 
 -- * Error Variables
@@ -25,6 +22,7 @@ makeErrorVars :: ( Eq b
                  , CanSubTo b b b
                  , CanSubTo Rational b Rational
                  , HasOne b
+                 , HasNegOne b
                  , HasZero b
                  ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
 makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
@@ -33,8 +31,8 @@ makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
         return ( VarMain n -- from Main var to its ErrVar equation
                , EquStd $ Equ (LinVarMap $ Map.fromList
                     [ (VarError n ErrPos, one')
-                    , (VarError n ErrNeg, {- (-1 :: Rational) .*. -} one')
-                    ]) 0                   -- cause of ambiguity ^
+                    , (VarError n ErrNeg, negone')
+                    ]) 0
                )
       newsus = Map.fromList $ mapMaybe (\u' -> do
         -- Restricts unrestricted vars

@@ -81,6 +81,10 @@ blandRatioPrimal col x = do
   coeff <- Map.lookup col (unLinVarMap $ vars x)
   if coeff < zero' then return $ constVal x ./. coeff
                    else Nothing
+-- TODO: safe division - should be `[x] ./. [x] ~ [Maybe x]` - somehow figure out
+-- a good way to order those, to find the minimum.
+-- 0 ~ [] ~ [Nothing]
+
 
 -- ** Dual
 

@@ -56,6 +56,9 @@ instance HasZero (Weight Rational) where
 instance HasOne (Weight Rational) where
   one' = Weight $ repeat 1
 
+instance HasNegOne (Weight Rational) where
+  negone' = Weight $ repeat (-1)
+
 instance CanSubTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .-. (Weight y) = Weight $ alignWith (onBoth (.-.)) x y
 
@@ -70,10 +73,6 @@ instance CanMultiplyTo (Weight Rational) Rational (Weight Rational) where
 
 instance CanMultiplyTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .*. y = sum x .*. y
-
--- TODO: Fix fundep, also is [x] ./. [y] ~ zipWith ./. ?
--- empty lists ~ 0, remember. [Maybe x] as a result? Needs lexicographic ordering :\
--- [] ~ [Nothing]
 
 divRWR :: Rational -> Weight Rational -> Rational
 divRWR x (Weight ys) = x / sum ys
