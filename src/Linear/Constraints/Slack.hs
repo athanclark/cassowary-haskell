@@ -5,27 +5,38 @@
 module Linear.Constraints.Slack where
 
 import Linear.Grammar
+import Linear.Class
 import Data.Set.Class as Sets
 
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Data.STRef
 import Data.Traversable (traverse)
+import Data.Foldable
 import Control.Monad.ST
+import Control.Monad.Reader
+import Control.Monad.Base
 
 
-makeSlackVars :: ( Num b
-                 ) => IntMap.IntMap (IneqStdForm b) -> IntMap.IntMap (IneqStdForm b)
+-- | Turns all inequality expressions into equality expressions by populating
+-- "slack" variables to compensate for the leeway removed.
+makeSlackVars :: ( Foldable f
+                 , HasNegate b
+                 ) => f (IneqStdForm b) -> IntMap.IntMap (IneqStdForm b)
 makeSlackVars xs' = runST $ do
-  i <- newSTRef 0
-  traverse (mkSlackStdForm i) xs'
+  k <- newSTRef 0
+  runReaderT (foldlM mkSlackStdForm mempty xs') k
   where
-    mkSlackStdForm :: ( Num b
-                      ) => STRef s Integer -> IneqStdForm b -> ST s (IneqStdForm b)
-    mkSlackStdForm _ (EquStd c) = return $ EquStd c
-    mkSlackStdForm i (LteStd (Lte (LinVarMap xs) xc)) = do
-      s <- readSTRef i
-      writeSTRef i $ s+1
-      return $ EquStd $ Equ (LinVarMap $ xs `union` Map.singleton (VarSlack s) 1) xc
-    mkSlackStdForm i (GteStd (Gte (LinVarMap xs) xc)) =
-      mkSlackStdForm i $ LteStd $ Lte (LinVarMap $ fmap (* (-1)) xs) $ xc * (-1)
+    mkSlackStdForm :: ( MonadReader (STRef s Int) m
+                      , MonadBase (ST s) m
+                      , HasNegate b
+                      ) => IntMap.IntMap (IneqStdForm b) -> IneqStdForm b -> m (IntMap.IntMap (IneqStdForm b))
+    mkSlackStdForm acc (GteStd (Gte (LinVarMap xs) xc)) =
+      mkSlackStdForm acc $ LteStd $ Lte (LinVarMap $ fmap negate' xs) $ negate' xc
+    mkSlackStdForm acc c = do
+      k <- ask
+      i <- liftBase $ readSTRef k
+      liftBase $ modifySTRef k (+1)
+      return $ case c of
+        LteStd (Lte xs xc) -> IntMap.insert i (EquStd $ Equ xs xc) acc
+        c                  -> IntMap.insert i c acc

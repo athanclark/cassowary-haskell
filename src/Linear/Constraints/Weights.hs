@@ -8,6 +8,7 @@
 module Linear.Constraints.Weights where
 
 import Linear.Class
+import Linear.Grammar
 
 import qualified Data.Map as Map
 import Data.These
@@ -24,6 +25,10 @@ onBoth f (These x y) = f x y
 
 newtype Weight a = Weight {unWeight :: [a]}
   deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus)
+
+makeWeight :: Rational -> Int -> Weight Rational
+makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
+               | otherwise = Weight $ replicate w 0 ++ [x]
 
 instance (Eq a, Num a) => Eq (Weight a) where
   (Weight xs') == (Weight ys') = go xs' ys'
@@ -43,6 +48,9 @@ instance (Ord a, Num a) => Ord (Weight a) where
         EQ -> go xs ys
         r -> r
 
+withWeight :: IneqExpr -> Int -> IneqStdForm (Weight Rational)
+withWeight x w = mapVars (mapCoeffs $ flip makeWeight w) $ standardForm x
+
 instance CanAddTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .+. (Weight y) = Weight $ alignWith (onBoth (.+.)) x y
 
@@ -58,6 +66,9 @@ instance HasOne (Weight Rational) where
 
 instance HasNegOne (Weight Rational) where
   negone' = Weight $ repeat (-1)
+
+instance HasNegate (Weight Rational) where
+  negate' (Weight xs) = Weight $ fmap negate xs
 
 instance CanSubTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .-. (Weight y) = Weight $ alignWith (onBoth (.-.)) x y

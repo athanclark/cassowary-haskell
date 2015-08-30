@@ -32,11 +32,11 @@ class HasNames a where
 
 class HasVariables (a :: * -> *) where
   vars :: a b -> LinVarMap b
-  mapVars :: (LinVarMap b -> LinVarMap b) -> a b -> a b
+  mapVars :: (LinVarMap b -> LinVarMap b0) -> a b -> a b0
 
 class HasCoefficients (a :: * -> *) where
   coeffVals :: a b -> [b]
-  mapCoeffVals :: (b -> b) -> a b -> a b
+  mapCoeffVals :: (b -> b0) -> a b -> a b0
   zipViaCoeffVals :: ([b] -> [b]) -> a b -> a b
 
 class HasConstant a where
@@ -170,12 +170,13 @@ newtype LinVarMap b = LinVarMap
 coeffs :: LinVarMap b -> [b]
 coeffs (LinVarMap m) = Map.elems m
 
-mapCoeffs :: (b -> b) -> LinVarMap b -> LinVarMap b
+mapCoeffs :: (b -> b0) -> LinVarMap b -> LinVarMap b0
 mapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
 
 zipViaCoeffs :: ([b] -> [b]) -> LinVarMap b -> LinVarMap b
 zipViaCoeffs f (LinVarMap m) = LinVarMap $ Map.fromList $ uncurry zip $ second f $ unzip $ Map.toList m
 
+-- TODO
 -- instance CanAddTo (LinVarMap a) (LinVarMap b) (LinVarMap r) where
 --   (LinVarMap x) .+. (LinVarMap y) = LinVarMap $ Map.unionWith (.+.) x y
 

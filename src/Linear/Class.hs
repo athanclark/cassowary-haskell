@@ -37,6 +37,13 @@ instance HasNegOne Rational where
   negone' = -1
 
 
+class HasNegate a where
+  negate' :: a -> a
+
+instance HasNegate Rational where
+  negate' = negate
+
+
 class CanSubTo a b r | a b -> r where
   (.-.) :: a -> b -> r
 

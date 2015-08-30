@@ -24,6 +24,7 @@ Library
   Build-Depends:        base >= 4.6 && < 5
                       , mtl
                       , transformers
+                      , transformers-base
                       , containers
                       , witherable
                       , these
