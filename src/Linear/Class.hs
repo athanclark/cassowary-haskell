@@ -8,6 +8,8 @@
 module Linear.Class where
 
 
+-- * Heterogeneous Arithmetic
+
 class CanAddTo a b r | a b -> r where
   (.+.) :: a -> b -> r
 
