@@ -32,6 +32,8 @@ import Control.Monad.ST
 
 -- * Bland's Rule
 
+-- ** Primal
+
 -- | Most negative coefficient in objective function
 nextBasicPrimal :: ( Ord b
                    , HasZero b
@@ -80,6 +82,8 @@ blandRatioPrimal col x = do
   if coeff < zero' then return $ constVal x ./. coeff
                    else Nothing
 
+-- ** Dual
+
 nextBasicDual :: ( Ord b
                  , CanDivideTo b b b
                  , HasZero b
@@ -124,6 +128,7 @@ nextRowDual xs =
       then elemIndex x $ toList xs
       else Nothing
 
+-- * Equation Refactoring
 
 -- | Orients equation over some (existing) variable
 flatten :: ( HasCoefficients a
@@ -157,6 +162,7 @@ substitute col focal target =
                   in mapConst (.-. (constVal focal' .*. coeff)) $ mapVars go target
     Nothing -> target
 
+-- * Pivots
 
 -- | Performs a single pivot
 pivotPrimal :: ( Ord b
@@ -184,15 +190,15 @@ pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
          )
 
 -- | Performs a single pivot
--- pivotDual :: ( Ord b
---              , CanDivideTo b b b
---              , CanDivideTo Rational b Rational
---              , CanMultiplyTo b b b
---              , CanMultiplyTo Rational b b1
---              , CanSubTo b b b
---              , CanSubTo Rational b1 Rational
---              , HasZero b
---              ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
+pivotDual :: ( Ord b
+             , CanDivideTo b b b
+             , CanDivideTo Rational b Rational
+             , CanMultiplyTo b b b
+             , CanMultiplyTo Rational b b
+             , CanSubTo b b b
+             , CanSubTo Rational b Rational
+             , HasZero b
+             ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
 pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
   row      <- nextRowDual c_s
   focalRaw <- IntMap.lookup row c_s

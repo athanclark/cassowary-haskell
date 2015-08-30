@@ -19,23 +19,29 @@ import Control.Applicative
 
 
 -- * Error Variables
-
--- makeErrorVars :: (Tableau b, Equality b) -> (Tableau b, Equality b)
+makeErrorVars :: ( Eq b
+                 , CanMultiplyTo b b b
+                 , CanMultiplyTo Rational b b
+                 , CanSubTo b b b
+                 , CanSubTo Rational b Rational
+                 , HasOne b
+                 , HasZero b
+                 ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
 makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
   let toSub = Map.fromList $ do
         n <- u
         return ( VarMain n -- from Main var to its ErrVar equation
                , EquStd $ Equ (LinVarMap $ Map.fromList
-                    [ (VarError n ErrPos, one') -- TODO: Error variables for /a/ weight, or all weights?
+                    [ (VarError n ErrPos, one')
                     , (VarError n ErrNeg, {- (-1 :: Rational) .*. -} one')
                     ]) 0                   -- cause of ambiguity ^
                )
       newsus = Map.fromList $ mapMaybe (\u' -> do
-        -- # Restricts unrestricted vars
+        -- Restricts unrestricted vars
         equation <- Map.lookup u' bus
         return ( VarError u' ErrPos
                , mapVars (\(LinVarMap xs) -> LinVarMap $
-                  xs `union` Map.singleton (VarError u' ErrNeg) one') equation -- because 0 = 1 + -1 ~ 1 = 1
+                  xs `union` Map.singleton (VarError u' ErrNeg) one') equation -- because (0 = 1 + -1) ~ (1 = 1)
                )) u -- "for every basic unrestricted var, re-orient to the positive error var in basic form"
       bus' = bus `union` Map.mapKeys (\(VarMain n) -> n) toSub -- unrestricted
       us'  = Map.foldWithKey (fmap .* substitute) us toSub -- post-substitution

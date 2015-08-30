@@ -10,20 +10,11 @@ module Linear.Constraints.Weights where
 import Linear.Class
 
 import qualified Data.Map as Map
-
+import Data.These
+import Data.Align
 import Control.Applicative
 import Control.Monad
 
-
-data These a b = This a
-               | That b
-               | These a b
-  deriving (Show, Eq)
-
-alignWith :: (These a b -> c) -> [a] -> [b] -> [c]
-alignWith f xs [] = (f . This) <$> xs
-alignWith f [] ys = (f . That) <$> ys
-alignWith f (x:xs) (y:ys) = f (These x y) : alignWith f xs ys
 
 onBoth :: (a -> a -> a) -> These a a -> a
 onBoth _ (This x) = x

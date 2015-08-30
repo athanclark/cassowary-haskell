@@ -26,6 +26,7 @@ Library
                       , transformers
                       , containers
                       , witherable
+                      , these
                       , sets
                       , composition
                       , QuickCheck
