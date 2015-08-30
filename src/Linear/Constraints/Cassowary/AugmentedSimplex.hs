@@ -168,7 +168,7 @@ substitute col focal target =
 
 -- * Pivots
 
--- | Performs a single pivot
+-- | Performs a single primal pivot, maximizing the basic feasible solution.
 pivotPrimal :: ( Ord b
                , CanDivideTo b b b
                , CanDivideTo Rational b b
@@ -193,7 +193,7 @@ pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
          , substitute col focal f
          )
 
--- | Performs a single pivot
+-- | Performs a single dual pivot, minimizing the basic feasible solution.
 pivotDual :: ( Ord b
              , CanDivideTo b b b
              , CanDivideTo Rational b Rational
@@ -217,7 +217,7 @@ pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
          , substitute col focal f
          )
 
--- | Simplex optimization
+-- | Primal maximizing optimization
 simplexPrimal :: ( Ord b
                  , CanDivideTo b b b
                  , CanDivideTo Rational b b
@@ -233,5 +233,6 @@ simplexPrimal x =
     Just (cs,f) -> simplexPrimal (cs,f)
     Nothing -> x
 
+-- | Dual minimizing optimization
 simplexDual :: (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexDual xs = undefined

@@ -18,8 +18,13 @@ import Control.Monad.Reader
 import Control.Monad.Base
 
 
+-- * Slack Variables
+
 -- | Turns all inequality expressions into equality expressions by populating
--- "slack" variables to compensate for the leeway removed.
+-- "slack" variables to compensate for the leeway removed:
+--
+-- >     x  >= c
+-- > x + s1  = c
 makeSlackVars :: ( Foldable f
                  , HasNegate b
                  ) => f (IneqStdForm b) -> IntMap.IntMap (IneqStdForm b)

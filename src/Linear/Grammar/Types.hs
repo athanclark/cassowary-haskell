@@ -14,10 +14,8 @@ import Data.Set.Class as Sets
 
 import Data.Char
 import Data.String
-import Data.Monoid
 import qualified Data.Map as Map
 import Control.Monad
-import Control.Applicative
 import Control.Arrow
 
 import Test.QuickCheck
@@ -162,7 +160,9 @@ hasName n (LinVar m _) = n == unLinVarName m
 hasCoeff :: Rational -> LinVar -> Bool
 hasCoeff x (LinVar _ y) = x == y
 
--- | Variables with coefficients
+-- * Variables with Coefficients
+
+-- | Mapping from variable names, to a polymorphic coefficient type.
 newtype LinVarMap b = LinVarMap
   { unLinVarMap :: Map.Map LinVarName b
   } deriving (Show, Eq, Foldable)

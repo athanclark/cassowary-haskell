@@ -5,12 +5,15 @@
   , MultiParamTypeClasses
   #-}
 
-module Linear.Constraints.Weights where
+module Linear.Constraints.Weights
+  ( Weight (..)
+  , makeWeight
+  , withWeight
+  ) where
 
 import Linear.Class
 import Linear.Grammar
 
-import qualified Data.Map as Map
 import Data.These
 import Data.Align
 import Control.Applicative
@@ -22,13 +25,19 @@ onBoth _ (This x) = x
 onBoth _ (That y) = y
 onBoth f (These x y) = f x y
 
-
+-- | Weighted value of type @a@.
 newtype Weight a = Weight {unWeight :: [a]}
   deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus)
 
 makeWeight :: Rational -> Int -> Weight Rational
 makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
                | otherwise = Weight $ replicate w 0 ++ [x]
+
+-- | Applies @makeWeight@ to each coefficient after turning the input into
+-- @standardForm@.
+withWeight :: IneqExpr -> Int -> IneqStdForm (Weight Rational)
+withWeight x w = mapVars (mapCoeffs $ flip makeWeight w) $ standardForm x
+
 
 instance (Eq a, Num a) => Eq (Weight a) where
   (Weight xs') == (Weight ys') = go xs' ys'
@@ -48,8 +57,7 @@ instance (Ord a, Num a) => Ord (Weight a) where
         EQ -> go xs ys
         r -> r
 
-withWeight :: IneqExpr -> Int -> IneqStdForm (Weight Rational)
-withWeight x w = mapVars (mapCoeffs $ flip makeWeight w) $ standardForm x
+-- Arithmetic Instances
 
 instance CanAddTo (Weight Rational) (Weight Rational) (Weight Rational) where
   (Weight x) .+. (Weight y) = Weight $ alignWith (onBoth (.+.)) x y

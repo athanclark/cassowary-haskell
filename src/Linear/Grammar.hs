@@ -1,11 +1,15 @@
 module Linear.Grammar
   ( module X
+-- * User-facing API
   , multLin
+-- * Linear Expressions
   , addLin
+-- * Linear Inequalities
   , (.==.)
   , (.<=.)
   , (.=>.)
   , makeLinExpr
+-- * Standard Form
   , standardForm
   , standardize
   , hasNoDups
@@ -16,10 +20,7 @@ import Data.Set.Class as Sets
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import Data.Monoid
 
-
--- * User-facing API
 
 -- | Pushes @ECoeff@ down the tree, leaving @EAdd@ at the top level.
 -- After using this funciton, all @ECoeff@ constructors @LinAst@ parameter will
@@ -33,8 +34,6 @@ multLin (ECoeff e x) = case multLin e of
   (ECoeff e' y) -> ECoeff e' (y * x)
   (EAdd e1 e2)  -> EAdd (multLin $ ECoeff e1 x) (multLin $ ECoeff e2 x)
 multLin (EAdd e1 e2) = EAdd (multLin e1) (multLin e2)
-
--- * Linear Expressions
 
 -- | Turns @LinAst@ to @LinExpr@ - should be done /after/ @multLin@.
 addLin :: LinAst -> LinExpr
@@ -51,8 +50,6 @@ addLin = go (LinExpr (LinVarMap Map.empty) 0)
                                  (\coeff -> Map.insert (VarMain n) (coeff + x) vs) $
                                  Map.lookup (VarMain n) vs) c
     go le (EAdd e1 e2) = mergeLinExpr (go le e1) (go le e2)
-
--- * Linear Inequalities
 
 
 (.==.) :: LinAst -> LinAst -> IneqExpr
@@ -99,11 +96,9 @@ standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
       in LteExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
 
 
-hasNoDups :: (Ord a) => [a] -> Bool
+hasNoDups :: Ord a => [a] -> Bool
 hasNoDups = loop Set.empty
   where
     loop _ []       = True
-    loop s (x:xs) | s' <- Set.insert x s, Set.size s' > Set.size s
-                    = loop s' xs
-                  | otherwise
-                    = False
+    loop s (x:xs) | s' <- Set.insert x s, Set.size s' > Set.size s = loop s' xs
+                  | otherwise = False

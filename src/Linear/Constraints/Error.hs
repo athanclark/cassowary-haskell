@@ -16,6 +16,15 @@ import Data.Composition
 
 
 -- * Error Variables
+
+-- | Replaces unrestricted variables with /two/ restricted variables - one for
+-- the positive component and one for the negative component, whose difference
+-- sums to be the original restricted variable:
+--
+-- >   -∞ <= x <= ∞
+-- > x_+ >= 0; x_- >= 0
+-- >
+-- >   x = x_+ - x_-
 makeErrorVars :: ( Eq b
                  , CanMultiplyTo b b b
                  , CanMultiplyTo Rational b b
