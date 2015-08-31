@@ -176,9 +176,13 @@ mapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
 zipViaCoeffs :: ([b] -> [b]) -> LinVarMap b -> LinVarMap b
 zipViaCoeffs f (LinVarMap m) = LinVarMap $ Map.fromList $ uncurry zip $ second f $ unzip $ Map.toList m
 
--- TODO
--- instance CanAddTo (LinVarMap a) (LinVarMap b) (LinVarMap r) where
---   (LinVarMap x) .+. (LinVarMap y) = LinVarMap $ Map.unionWith (.+.) x y
+
+instance CanAddTo b b b => CanAddTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
+  (LinVarMap x) .+. (LinVarMap y) = LinVarMap $ Map.unionWith (.+.) x y
+
+instance (CanSubTo b b b, HasZero b, Eq b) => CanSubTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
+  (LinVarMap x) .-. (LinVarMap y) = LinVarMap $ Map.filter (== zero') $
+                                      Map.unionWith (.-.) x y
 
 deriving instance Monoid (LinVarMap b)
 deriving instance HasUnion (LinVarMap b)

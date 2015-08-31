@@ -161,9 +161,8 @@ substitute :: ( Eq b
 substitute col focal target =
   case Map.lookup col $ unLinVarMap $ vars target of
     Just coeff -> let focal' = mapCoeffVals (.*. coeff) focal
-                      go (LinVarMap xs) = let xs' = Map.unionWith (.-.) xs (unLinVarMap $ vars focal')
-                                          in LinVarMap $ Map.filter (/= zero') xs'
-                  in mapConst (.-. (constVal focal' .*. coeff)) $ mapVars go target
+                  in mapConst (.-. (constVal focal' .*. coeff)) $
+                     mapVars  (.-. vars focal') target
     Nothing -> target
 
 -- * Pivots
