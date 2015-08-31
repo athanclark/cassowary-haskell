@@ -15,6 +15,7 @@ import Linear.Constraints.Tableau
 import Linear.Constraints.Weights
 import Linear.Grammar
 import Linear.Class
+import Data.Set.Class as Sets
 
 import Data.List (elemIndex)
 import Data.Maybe hiding (mapMaybe)
@@ -183,11 +184,11 @@ pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
   row      <- nextRowPrimal col c_s
   focalRaw <- IntMap.lookup row c_s
   let focal = flatten col focalRaw
-      focal' = mapVars (LinVarMap . Map.delete col . unLinVarMap) focal
+      focal' = mapVars (delete col) focal
   return ( Tableau c_u
-              ( BNFTableau $ Map.insert col focal' $
+              ( BNFTableau $ insertWith col focal' $
                   fmap (substitute col focal) basicc_s
-              , substitute col focal <$> IntMap.delete row c_s
+              , substitute col focal <$> delete row c_s
               ) u
          , substitute col focal f
          )
@@ -207,14 +208,24 @@ pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
   focalRaw <- IntMap.lookup row c_s
   col      <- nextBasicDual f focalRaw
   let focal = flatten col focalRaw
-      focal' = mapVars (LinVarMap . Map.delete col . unLinVarMap) focal
+      focal' = mapVars (delete col) focal
   return ( Tableau c_u
-              ( BNFTableau $ Map.insert col focal' $
+              ( BNFTableau $ insertWith col focal' $
                   fmap (substitute col focal) basicc_s
-              , substitute col focal <$> IntMap.delete row c_s
+              , substitute col focal <$> delete row c_s
               ) u
          , substitute col focal f
          )
+
+-- | Optimize when given a pivot function
+simplexWith :: (
+               ) => ((Tableau b, Equality b) -> Maybe (Tableau b, Equality b))
+                 -> (Tableau b, Equality b)
+                 -> (Tableau b, Equality b)
+simplexWith piv x =
+ case piv x of
+   Just (cs,f) -> simplexWith piv (cs,f)
+   Nothing -> x
 
 -- | Primal maximizing optimization
 simplexPrimal :: ( Ord b
@@ -227,11 +238,16 @@ simplexPrimal :: ( Ord b
                  , CanSubTo Rational b Rational
                  , HasZero b
                  ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
-simplexPrimal x =
-  case pivotPrimal x of
-    Just (cs,f) -> simplexPrimal (cs,f)
-    Nothing -> x
+simplexPrimal = simplexWith pivotPrimal
 
--- | Dual minimizing optimization
-simplexDual :: (Tableau b, Equality b) -> (Tableau b, Equality b)
-simplexDual xs = undefined
+-- | Primal maximizing optimization
+simplexDual :: ( Ord b
+               , CanDivideTo b b b
+               , CanDivideTo Rational b Rational
+               , CanMultiplyTo b b b
+               , CanMultiplyTo Rational b b
+               , CanSubTo b b b
+               , CanSubTo Rational b Rational
+               , HasZero b
+               ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
+simplexDual = simplexWith pivotDual
