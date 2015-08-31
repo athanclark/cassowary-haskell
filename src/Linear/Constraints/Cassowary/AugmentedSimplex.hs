@@ -9,7 +9,7 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
-import Prelude hiding (foldr, minimum, zip, lookup)
+import Prelude hiding (foldr, minimum, zip, lookup, empty)
 
 import Linear.Constraints.Tableau
 import Linear.Constraints.Weights
@@ -28,7 +28,7 @@ import Data.STRef
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
-import Control.Applicative
+import Control.Applicative hiding (empty)
 import Control.Monad.ST
 
 
@@ -98,7 +98,7 @@ nextBasicDual :: ( Ord b
 nextBasicDual o x =
   let osMap = unLinVarMap $ vars o
       xsMap = unLinVarMap $ vars x
-      allVars = Map.keysSet osMap <> Map.keysSet xsMap
+      allVars = Map.keysSet osMap `union` Map.keysSet xsMap
   in if Set.size allVars > 0
      then let n = minimumBy (compare `on` fst) $ trim $
                     Set.map (\col -> (,col) <$> blandRatioDual col o x) allVars
@@ -118,8 +118,8 @@ blandRatioDual :: ( Ord b
                   , HasVariables a
                   ) => LinVarName -> Equality b -> a b -> Maybe b
 blandRatioDual col o x = do
-  o' <- Map.lookup col (unLinVarMap $ vars o)
-  x' <- Map.lookup col (unLinVarMap $ vars x)
+  o' <- lookup col $ vars o
+  x' <- lookup col $ vars x
   if x' > zero' then return $ o' ./. x'
                 else Nothing
 

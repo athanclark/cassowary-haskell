@@ -37,7 +37,7 @@ newtype IneqStdFormWithMember b = IneqStdFormWithMember
   {unIneqStdFormWithMember :: (LinVarName, IneqStdForm b)}
   deriving (Show, Eq)
 
-instance Arbitrary b => Arbitrary (IneqStdFormWithMember b) where
+instance (Num b, Eq b, Arbitrary b) => Arbitrary (IneqStdFormWithMember b) where
   arbitrary = do
     body <- arbitrary
     n <- oneof (map return $ Map.keys $ unLinVarMap $ vars body)

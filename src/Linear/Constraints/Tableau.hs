@@ -48,9 +48,9 @@ makeRestrictedTableau :: ( Foldable f
                          , HasNegate b
                          ) => f (IneqStdForm b) -> Tableau b
 makeRestrictedTableau xs =
-  Tableau ( BNFTableau Map.empty
+  Tableau ( mempty
           , mempty )
-          ( BNFTableau Map.empty
+          ( mempty
           , makeSlackVars xs )
           []
 
@@ -58,8 +58,8 @@ makeUnrestrictedTableau :: ( Foldable f
                            , HasNegate b
                            ) => f (IneqStdForm b) -> Tableau b
 makeUnrestrictedTableau xs =
-  Tableau ( BNFTableau Map.empty
+  Tableau ( mempty
           , makeSlackVars xs )
-          ( BNFTableau Map.empty
+          ( mempty
           , mempty )
           (concatMap names xs)

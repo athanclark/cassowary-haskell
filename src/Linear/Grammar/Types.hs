@@ -212,9 +212,9 @@ instance HasCoefficients LinVarMap where
   mapCoeffVals = mapCoeffs
   zipViaCoeffVals = zipViaCoeffs
 
-instance Arbitrary b => Arbitrary (LinVarMap b) where
+instance (Num b, Arbitrary b, Eq b) => Arbitrary (LinVarMap b) where
   arbitrary = LinVarMap <$> arbitrary `suchThat`
-    (\x -> Map.size x <= 100 && Map.size x > 0)
+    (\x -> Map.size x <= 100 && Map.size x > 0 && all (/= 0) x)
 
 -- * Expressions
 
@@ -281,7 +281,7 @@ instance HasConstant (Equality b) where
   constVal (Equ _ xc) = xc
   mapConst f (Equ xs xc) = Equ xs $ f xc
 
-instance Arbitrary b => Arbitrary (Equality b) where
+instance (Num b, Eq b, Arbitrary b) => Arbitrary (Equality b) where
   arbitrary = liftM2 Equ arbitrary arbitrary
 
 data LInequality b = Lte (LinVarMap b) Rational
@@ -304,7 +304,7 @@ instance HasConstant (LInequality b) where
   constVal (Lte _ xc) = xc
   mapConst f (Lte xs xc) = Lte xs $ f xc
 
-instance Arbitrary b => Arbitrary (LInequality b) where
+instance (Num b, Eq b, Arbitrary b) => Arbitrary (LInequality b) where
   arbitrary = liftM2 Lte arbitrary arbitrary
 
 data GInequality b = Gte (LinVarMap b) Rational
@@ -327,7 +327,7 @@ instance HasConstant (GInequality b) where
   constVal (Gte _ xc) = xc
   mapConst f (Gte xs xc) = Gte xs $ f xc
 
-instance Arbitrary b => Arbitrary (GInequality b) where
+instance (Num b, Eq b, Arbitrary b) => Arbitrary (GInequality b) where
   arbitrary = liftM2 Gte arbitrary arbitrary
 
 -- | Internal structure for linear equations
@@ -372,7 +372,7 @@ instance HasConstant (IneqStdForm b) where
   mapConst f (LteStd x) = LteStd $ mapConst f x
   mapConst f (GteStd x) = GteStd $ mapConst f x
 
-instance Arbitrary b => Arbitrary (IneqStdForm b) where
+instance (Num b, Eq b, Arbitrary b) => Arbitrary (IneqStdForm b) where
   arbitrary = oneof
     [ EquStd <$> arbitrary
     , LteStd <$> arbitrary
