@@ -9,7 +9,7 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
-import Prelude hiding (foldr, minimum, zip)
+import Prelude hiding (foldr, minimum, zip, lookup)
 
 import Linear.Constraints.Tableau
 import Linear.Constraints.Weights
@@ -23,6 +23,7 @@ import Data.Monoid
 import Data.Foldable
 import Data.Witherable
 import Data.Function (on)
+import Data.Key
 import Data.STRef
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -142,7 +143,7 @@ flatten :: ( HasCoefficients a
            , CanDivideTo b b b
            , CanDivideTo Rational b Rational
            ) => LinVarName -> a b -> a b
-flatten col x = case Map.lookup col $ unLinVarMap $ vars x of
+flatten col x = case lookup col $ vars x of
   Just y  -> mapConst (./. y) $ mapCoeffVals (./. y) x
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
@@ -160,7 +161,7 @@ substitute :: ( Eq b
               , HasVariables a1
               ) => LinVarName -> a b -> a1 b -> a1 b
 substitute col focal target =
-  case Map.lookup col $ unLinVarMap $ vars target of
+  case lookup col $ vars target of
     Just coeff -> let focal' = mapCoeffVals (.*. coeff) focal
                   in mapConst (.-. (constVal focal' .*. coeff)) $
                      mapVars  (.-. vars focal') target
@@ -182,7 +183,7 @@ pivotPrimal :: ( Ord b
 pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
   col      <- nextBasicPrimal f
   row      <- nextRowPrimal col c_s
-  focalRaw <- IntMap.lookup row c_s
+  focalRaw <- lookup row c_s
   let focal = flatten col focalRaw
       focal' = mapVars (delete col) focal
   return ( Tableau c_u
@@ -205,7 +206,7 @@ pivotDual :: ( Ord b
              ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
 pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
   row      <- nextRowDual c_s
-  focalRaw <- IntMap.lookup row c_s
+  focalRaw <- lookup row c_s
   col      <- nextBasicDual f focalRaw
   let focal = flatten col focalRaw
       focal' = mapVars (delete col) focal

@@ -5,15 +5,19 @@
   , GeneralizedNewtypeDeriving
   , KindSignatures
   , DeriveFoldable
+  , TypeFamilies
   #-}
 
 module Linear.Grammar.Types where
+
+import Prelude hiding (zip)
 
 import Linear.Class
 import Data.Set.Class as Sets
 
 import Data.Char
 import Data.String
+import Data.Key
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Arrow
@@ -184,12 +188,16 @@ instance (CanSubTo b b b, HasZero b, Eq b) => CanSubTo (LinVarMap b) (LinVarMap 
   (LinVarMap x) .-. (LinVarMap y) = LinVarMap $ Map.filter (== zero') $
                                       Map.unionWith (.-.) x y
 
+type instance Key LinVarMap = LinVarName
+
 deriving instance Monoid                     (LinVarMap b)
 deriving instance HasUnion                   (LinVarMap b)
 deriving instance HasIntersection            (LinVarMap b)
 deriving instance HasDifference              (LinVarMap b)
 deriving instance HasDelete LinVarName       (LinVarMap b)
 deriving instance HasInsertWith LinVarName b (LinVarMap b)
+deriving instance Lookup                      LinVarMap
+
 
 instance HasNames (LinVarMap b) where
   names (LinVarMap x) = unLinVarName <$> Map.keys x

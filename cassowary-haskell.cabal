@@ -28,6 +28,7 @@ Library
                       , containers
                       , witherable
                       , these
+                      , keys
                       , sets
                       , composition
                       , QuickCheck
@@ -41,14 +42,20 @@ Test-Suite spec
   Ghc-Options:          -Wall
   Main-Is:              Main.hs
   Build-Depends:        base
-                      , containers
-                      , mtl
-                      , transformers
                       , tasty
                       , tasty-quickcheck
                       , tasty-hunit
                       , QuickCheck
                       , quickcheck-instances
+                      , mtl
+                      , transformers
+                      , transformers-base
+                      , containers
+                      , witherable
+                      , these
+                      , keys
+                      , sets
+                      , composition
 
 Source-Repository head
   Type:                 git

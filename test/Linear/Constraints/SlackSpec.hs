@@ -1,3 +1,8 @@
+{-# LANGUAGE
+    TypeSynonymInstances
+  , FlexibleInstances
+  #-}
+
 module Linear.Constraints.SlackSpec where
 
 import Prelude hiding (all)
@@ -23,15 +28,20 @@ slackSpec = testGroup "Linear.Constraints.Slack"
   ]
 
 
-prop_makeSlackVars_equ :: IMap.IntMap IneqStdForm -> Bool
-prop_makeSlackVars_equ x = all isEqu $ evalState (makeSlackVars x) 0
+prop_makeSlackVars_equ :: [IneqStdForm Rational] -> Bool
+prop_makeSlackVars_equ x = all isEqu $ makeSlackVars x
   where
-    isEqu :: IneqStdForm -> Bool
+    isEqu :: IneqStdForm b -> Bool
     isEqu (EquStd _) = True
     isEqu _ = False
 
-prop_makeSlackVars_idemp :: IMap.IntMap IneqStdForm -> Bool
+prop_makeSlackVars_idemp :: [IneqStdForm Rational] -> Bool
 prop_makeSlackVars_idemp x =
-  let x1 = evalState (makeSlackVars x) 0
-      x2 = evalState (makeSlackVars =<< makeSlackVars x) 0
+  let x1 = makeSlackVars x
+      x2 = makeSlackVars $ makeSlackVars x
   in x1 == x2
+
+
+
+instance Arbitrary Rational where
+  arbitrary = between1000Rational
