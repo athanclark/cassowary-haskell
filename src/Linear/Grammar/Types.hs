@@ -184,10 +184,12 @@ instance (CanSubTo b b b, HasZero b, Eq b) => CanSubTo (LinVarMap b) (LinVarMap 
   (LinVarMap x) .-. (LinVarMap y) = LinVarMap $ Map.filter (== zero') $
                                       Map.unionWith (.-.) x y
 
-deriving instance Monoid (LinVarMap b)
-deriving instance HasUnion (LinVarMap b)
-deriving instance HasIntersection (LinVarMap b)
-deriving instance HasDifference (LinVarMap b)
+deriving instance Monoid                     (LinVarMap b)
+deriving instance HasUnion                   (LinVarMap b)
+deriving instance HasIntersection            (LinVarMap b)
+deriving instance HasDifference              (LinVarMap b)
+deriving instance HasDelete LinVarName       (LinVarMap b)
+deriving instance HasInsertWith LinVarName b (LinVarMap b)
 
 instance HasNames (LinVarMap b) where
   names (LinVarMap x) = unLinVarName <$> Map.keys x
