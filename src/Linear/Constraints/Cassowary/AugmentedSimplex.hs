@@ -9,10 +9,9 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
-import Prelude hiding (foldr, minimum, zip, lookup, empty)
+import Prelude hiding (foldr, minimum, zip, lookup, empty, filter)
 
 import Linear.Constraints.Tableau
-import Linear.Constraints.Weights
 import Linear.Grammar
 import Linear.Class
 import Data.Set.Class as Sets
@@ -24,12 +23,10 @@ import Data.Foldable
 import Data.Witherable
 import Data.Function (on)
 import Data.Key
-import Data.STRef
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
 import Control.Applicative hiding (empty)
-import Control.Monad.ST
 
 
 -- * Bland's Rule
@@ -80,7 +77,7 @@ blandRatioPrimal :: ( CanDivideTo Rational b b
                     , Ord b
                     ) => LinVarName -> a b -> Maybe b
 blandRatioPrimal col x = do
-  coeff <- Map.lookup col (unLinVarMap $ vars x)
+  coeff <- lookup col $ vars x
   if coeff < zero' then return $ constVal x ./. coeff
                    else Nothing
 -- TODO: safe division - should be `[x] ./. [x] ~ [Maybe x]` - somehow figure out
@@ -136,10 +133,12 @@ nextRowDual xs =
 
 -- * Equation Refactoring
 
--- | Orients equation over some (existing) variable
+-- | Orients / refactors an equation for one of its variables
 flatten :: ( HasCoefficients a
            , HasVariables a
            , HasConstant (a b)
+           , HasZero b
+           , Eq b
            , CanDivideTo b b b
            , CanDivideTo Rational b Rational
            ) => LinVarName -> a b -> a b
@@ -148,9 +147,12 @@ flatten col x = case lookup col $ vars x of
   Nothing -> error "`flatten` should be called with a variable that exists in the equation"
 
 
+-- | Replaces a separate equation @f@ for a variable @x@, in some target equation @g@ -
+-- assuming @x = f@, and @1x ∈ f, and x ∈ g@.
 substitute :: ( Eq b
               , CanMultiplyTo b b b
               , CanMultiplyTo Rational b b
+              , CanMultiplyTo Rational b Rational
               , CanSubTo b b b
               , CanSubTo Rational b Rational
               , HasZero b
@@ -160,11 +162,12 @@ substitute :: ( Eq b
               , HasVariables a
               , HasVariables a1
               ) => LinVarName -> a b -> a1 b -> a1 b
-substitute col focal target =
+substitute col replacement target =
   case lookup col $ vars target of
-    Just coeff -> let focal' = mapCoeffVals (.*. coeff) focal
-                  in mapConst (.-. (constVal focal' .*. coeff)) $
-                     mapVars  (.-. vars focal') target
+    Just coeff -> let replacement' = mapCoeffVals (.*. coeff)
+                                   $ mapConst (.*. coeff) replacement
+                  in mapVars  (.-. vars replacement')
+                   $ mapConst (.-. constVal replacement') target
     Nothing -> target
 
 -- * Pivots
@@ -176,6 +179,7 @@ pivotPrimal :: ( Ord b
                , CanDivideTo Rational b Rational
                , CanMultiplyTo b b b
                , CanMultiplyTo Rational b b
+               , CanMultiplyTo Rational b Rational
                , CanSubTo b b b
                , CanSubTo Rational b Rational
                , HasZero b
@@ -200,6 +204,7 @@ pivotDual :: ( Ord b
              , CanDivideTo Rational b Rational
              , CanMultiplyTo b b b
              , CanMultiplyTo Rational b b
+             , CanMultiplyTo Rational b Rational
              , CanSubTo b b b
              , CanSubTo Rational b Rational
              , HasZero b
@@ -235,6 +240,7 @@ simplexPrimal :: ( Ord b
                  , CanDivideTo Rational b Rational
                  , CanMultiplyTo b b b
                  , CanMultiplyTo Rational b b
+                 , CanMultiplyTo Rational b Rational
                  , CanSubTo b b b
                  , CanSubTo Rational b Rational
                  , HasZero b
@@ -247,6 +253,7 @@ simplexDual :: ( Ord b
                , CanDivideTo Rational b Rational
                , CanMultiplyTo b b b
                , CanMultiplyTo Rational b b
+               , CanMultiplyTo Rational b Rational
                , CanSubTo b b b
                , CanSubTo Rational b Rational
                , HasZero b

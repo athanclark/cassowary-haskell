@@ -4,13 +4,15 @@
   , StandaloneDeriving
   , GeneralizedNewtypeDeriving
   , KindSignatures
+  , DeriveFunctor
   , DeriveFoldable
+  , DeriveTraversable
   , TypeFamilies
   #-}
 
 module Linear.Grammar.Types where
 
-import Prelude hiding (zip)
+import Prelude hiding (zip, filter)
 
 import Linear.Class
 import Data.Set.Class as Sets
@@ -18,6 +20,7 @@ import Data.Set.Class as Sets
 import Data.Char
 import Data.String
 import Data.Key
+import Data.Witherable
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Arrow
@@ -169,7 +172,7 @@ hasCoeff x (LinVar _ y) = x == y
 -- | Mapping from variable names, to a polymorphic coefficient type.
 newtype LinVarMap b = LinVarMap
   { unLinVarMap :: Map.Map LinVarName b
-  } deriving (Show, Eq, Foldable)
+  } deriving (Show, Eq, Functor, Foldable, Traversable, Monoid, Lookup)
 
 coeffs :: LinVarMap b -> [b]
 coeffs (LinVarMap m) = Map.elems m
@@ -181,22 +184,22 @@ zipViaCoeffs :: ([b] -> [b]) -> LinVarMap b -> LinVarMap b
 zipViaCoeffs f (LinVarMap m) = LinVarMap $ Map.fromList $ uncurry zip $ second f $ unzip $ Map.toList m
 
 
-instance CanAddTo b b b => CanAddTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
-  (LinVarMap x) .+. (LinVarMap y) = LinVarMap $ Map.unionWith (.+.) x y
+instance (CanAddTo b b b, HasZero b, Eq b) => CanAddTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
+  (LinVarMap x) .+. (LinVarMap y) = filter (== zero') $ LinVarMap $ Map.unionWith (.+.) x y
 
 instance (CanSubTo b b b, HasZero b, Eq b) => CanSubTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
-  (LinVarMap x) .-. (LinVarMap y) = LinVarMap $ Map.filter (== zero') $
-                                      Map.unionWith (.-.) x y
+  (LinVarMap x) .-. (LinVarMap y) = filter (== zero') $ LinVarMap $ Map.unionWith (.-.) x y
 
 type instance Key LinVarMap = LinVarName
 
-deriving instance Monoid                     (LinVarMap b)
+instance Witherable LinVarMap where
+  wither f (LinVarMap xs) = LinVarMap <$> wither f xs
+
 deriving instance HasUnion                   (LinVarMap b)
 deriving instance HasIntersection            (LinVarMap b)
 deriving instance HasDifference              (LinVarMap b)
 deriving instance HasDelete LinVarName       (LinVarMap b)
 deriving instance HasInsertWith LinVarName b (LinVarMap b)
-deriving instance Lookup                      LinVarMap
 
 
 instance HasNames (LinVarMap b) where
@@ -214,7 +217,7 @@ instance HasCoefficients LinVarMap where
 
 instance (Num b, Arbitrary b, Eq b) => Arbitrary (LinVarMap b) where
   arbitrary = LinVarMap <$> arbitrary `suchThat`
-    (\x -> Map.size x <= 100 && Map.size x > 0 && all (/= 0) x)
+    (\x -> Map.size x <= 100 && Map.size x > 0 && notElem 0 x)
 
 -- * Expressions
 

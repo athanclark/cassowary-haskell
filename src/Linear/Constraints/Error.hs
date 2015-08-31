@@ -28,6 +28,7 @@ import Data.Composition
 makeErrorVars :: ( Eq b
                  , CanMultiplyTo b b b
                  , CanMultiplyTo Rational b b
+                 , CanMultiplyTo Rational b Rational
                  , CanSubTo b b b
                  , CanSubTo Rational b Rational
                  , HasOne b
