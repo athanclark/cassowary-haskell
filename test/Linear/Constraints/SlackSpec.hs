@@ -23,8 +23,6 @@ slackSpec :: TestTree
 slackSpec = testGroup "Linear.Constraints.Slack"
   [ QC.testProperty "`makeSlackVars` should result in only Equalities"
       prop_makeSlackVars_equ
-  , QC.testProperty "`makeSlackVars` should be idempotent"
-      prop_makeSlackVars_idemp
   ]
 
 
@@ -34,14 +32,6 @@ prop_makeSlackVars_equ x = all isEqu $ makeSlackVars x
     isEqu :: IneqStdForm b -> Bool
     isEqu (EquStd _) = True
     isEqu _ = False
-
-prop_makeSlackVars_idemp :: [IneqStdForm Rational] -> Bool
-prop_makeSlackVars_idemp x =
-  let x1 = makeSlackVars x
-      x2 = makeSlackVars $ makeSlackVars x
-  in x1 == x2
-
-
 
 instance Arbitrary Rational where
   arbitrary = between1000Rational

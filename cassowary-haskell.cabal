@@ -12,7 +12,7 @@ Build-Type:             Simple
 Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
-  GHC-Options:          -Wall
+  GHC-Options:          -Wall -threaded -O2
   Exposed-Modules:      Linear.Class
                         Linear.Grammar
                         Linear.Grammar.Types
@@ -31,6 +31,7 @@ Library
                       , keys
                       , sets
                       , composition
+                      , deepseq
                       , QuickCheck
                       , quickcheck-instances
 
@@ -39,12 +40,32 @@ Test-Suite spec
   Default-Language:     Haskell2010
   Hs-Source-Dirs:       src
                       , test
-  Ghc-Options:          -Wall
+  Ghc-Options:          -Wall -threaded -O2
   Main-Is:              Main.hs
   Build-Depends:        base
                       , tasty
                       , tasty-quickcheck
                       , tasty-hunit
+                      , QuickCheck
+                      , quickcheck-instances
+                      , mtl
+                      , transformers
+                      , transformers-base
+                      , containers
+                      , witherable
+                      , these
+                      , keys
+                      , sets
+                      , composition
+
+Benchmark profile
+  Type:                 exitcode-stdio-1.0
+  Main-Is:              Profile.hs
+  Hs-Source-Dirs:       bench
+                      , src
+  GHC-Options:          -O2 -threaded
+  Build-Depends:        base
+                      , criterion
                       , QuickCheck
                       , quickcheck-instances
                       , mtl

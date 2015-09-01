@@ -5,11 +5,15 @@
 
 module Linear.Constraints.CassowarySpec where
 
+import Prelude hiding (lookup)
+
 import Linear.Constraints.Cassowary
 import Linear.Grammar
 import Linear.Class
 import Linear.Constraints.Tableau
 import Data.Set.Class as Sets
+import Data.Key
+import Data.Maybe (isNothing)
 
 import qualified Data.Map as Map
 
@@ -27,8 +31,8 @@ cassowarySpec = testGroup "Linear.Constraints.Cassowary"
     , QC.testProperty "results in 1" prop_flatten_1
     ]
   , testGroup "`substitute`"
-    [ QC.testProperty "on self should result in all 0s" prop_substitute_self0
-    , QC.testProperty "results in 0 for any target" prop_substitute_any0
+    -- [ QC.testProperty "on self should result in all 0s" prop_substitute_self0
+    [ QC.testProperty "results in 0 for any target" prop_substitute_any0
     ]
   -- , unitTests
   ]
@@ -64,9 +68,7 @@ prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
 
 prop_substitute_any0 :: IneqStdFormWithMember Rational -> IneqStdForm Rational -> Bool
 prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
-  case Map.lookup n $ unLinVarMap $ vars $ substitute n (flatten n x) y of
-    Nothing -> True
-    Just _ -> False
+  isNothing $ lookup n $ vars $ substitute n (flatten n x) y
 
 -- unitTests :: TestTree
 -- unitTests = testGroup "Unit Tests"

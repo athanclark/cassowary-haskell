@@ -7,6 +7,8 @@
   , DeriveFunctor
   , DeriveFoldable
   , DeriveTraversable
+  , DeriveGeneric
+  , DeriveAnyClass
   , TypeFamilies
   #-}
 
@@ -24,6 +26,8 @@ import Data.Witherable
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Arrow
+import Control.DeepSeq
+import GHC.Generics
 
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
@@ -56,7 +60,7 @@ data LinAst =
   | ELit Rational
   | ECoeff LinAst Rational
   | EAdd LinAst LinAst
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 instance HasNames LinAst where
   names (EVar n) = [n]

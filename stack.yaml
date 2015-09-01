@@ -1,5 +1,9 @@
 flags: {}
 packages:
 - '.'
-extra-deps: []
-resolver: lts-2.15
+extra-deps:
+  - sets-0.0.4.1
+  - commutative-0.0.1.3
+  - discrimination-0.1
+  - promises-0.2
+resolver: nightly-2015-08-30
