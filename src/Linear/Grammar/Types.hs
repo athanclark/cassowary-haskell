@@ -7,8 +7,6 @@
   , DeriveFunctor
   , DeriveFoldable
   , DeriveTraversable
-  , DeriveGeneric
-  , DeriveAnyClass
   , TypeFamilies
   #-}
 
@@ -26,8 +24,6 @@ import Data.Witherable
 import qualified Data.Map as Map
 import Control.Monad
 import Control.Arrow
-import Control.DeepSeq
-import GHC.Generics
 
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
@@ -38,6 +34,14 @@ import Test.QuickCheck.Instances ()
 class HasNames a where
   names :: a -> [String]
   mapNames :: (String -> String) -> a -> a
+
+instance HasNames String where
+  names x = [x]
+  mapNames = ($)
+
+instance (HasNames a, HasNames b, Ord a) => HasNames (Map.Map a b) where
+  names xs = concatMap names (Map.keys xs) ++ concatMap names xs
+  mapNames f xs = Map.mapKeys (mapNames f) $ mapNames f <$> xs
 
 class HasVariables (a :: * -> *) where
   vars :: a b -> LinVarMap b
@@ -60,7 +64,7 @@ data LinAst =
   | ELit Rational
   | ECoeff LinAst Rational
   | EAdd LinAst LinAst
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq)
 
 instance HasNames LinAst where
   names (EVar n) = [n]
@@ -73,13 +77,16 @@ instance HasNames LinAst where
   mapNames f (EAdd e1 e2) = EAdd (mapNames f e1) (mapNames f e2)
 
 instance Arbitrary LinAst where
-  arbitrary = oneof
-    [ EVar <$> content
-    , ELit <$> between1000Rational
-    , liftM2 ECoeff arbitrary between1000Rational
-    , liftM2 EAdd arbitrary arbitrary
-    ] `suchThat` (\x -> nodeCount x < 1000)
+  arbitrary = sized go
     where
+      go :: Int -> Gen LinAst
+      go s = oneof
+        [ EVar <$> content
+        , ELit <$> between1000Rational
+        , liftM2 ECoeff (scale (subtract 1) arbitrary) between1000Rational
+        , liftM2 EAdd (scale (subtract 1) arbitrary) arbitrary
+        ] `suchThat` (\x -> nodeCount x < 1000 && nodeCount x < fromIntegral s)
+
       nodeCount :: LinAst -> Integer
       nodeCount (EVar _) = 1
       nodeCount (ELit _) = 1
@@ -269,7 +276,7 @@ instance Arbitrary IneqExpr where
 -- * Standard Form Equations
 
 data Equality b = Equ (LinVarMap b) Rational
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Foldable, Traversable) -- TODO: Make Lookup instance!
 
 instance HasNames (Equality b) where
   names (Equ xs _) = names xs
@@ -289,10 +296,10 @@ instance HasConstant (Equality b) where
   mapConst f (Equ xs xc) = Equ xs $ f xc
 
 instance (Num b, Eq b, Arbitrary b) => Arbitrary (Equality b) where
-  arbitrary = liftM2 Equ arbitrary arbitrary
+  arbitrary = liftM2 Equ arbitrary between1000Rational
 
 data LInequality b = Lte (LinVarMap b) Rational
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Foldable, Traversable)
 
 instance HasNames (LInequality b) where
   names (Lte xs _) = names xs
@@ -312,10 +319,10 @@ instance HasConstant (LInequality b) where
   mapConst f (Lte xs xc) = Lte xs $ f xc
 
 instance (Num b, Eq b, Arbitrary b) => Arbitrary (LInequality b) where
-  arbitrary = liftM2 Lte arbitrary arbitrary
+  arbitrary = liftM2 Lte arbitrary between1000Rational
 
 data GInequality b = Gte (LinVarMap b) Rational
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Foldable, Traversable)
 
 instance HasNames (GInequality b) where
   names (Gte xs _) = names xs
@@ -335,14 +342,14 @@ instance HasConstant (GInequality b) where
   mapConst f (Gte xs xc) = Gte xs $ f xc
 
 instance (Num b, Eq b, Arbitrary b) => Arbitrary (GInequality b) where
-  arbitrary = liftM2 Gte arbitrary arbitrary
+  arbitrary = liftM2 Gte arbitrary between1000Rational
 
 -- | Internal structure for linear equations
 data IneqStdForm b =
     EquStd {unEquStd :: Equality b}
   | LteStd {unLteStd :: LInequality b}
   | GteStd {unGteStd :: GInequality b}
-  deriving (Show, Eq)
+  deriving (Show, Eq, Functor, Foldable, Traversable)
 
 instance HasNames (IneqStdForm b) where
   names (EquStd x) = names x
