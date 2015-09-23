@@ -18,6 +18,7 @@ import Data.Set.Unordered.Unique (UUSet (..))
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Data.Foldable
+import Control.Monad
 import Control.Arrow
 
 import Test.QuickCheck
@@ -46,12 +47,27 @@ data Tableau b = Tableau
   , urVars       :: [String] -- ^ All unrestricted variable names
   } deriving (Show, Eq, Functor, Foldable, Traversable)
 
+newtype GenDisjointKey k a = GenDisjointKey {unGenDisjointKey :: [(k,a)]}
+  deriving (Show, Eq)
+
+instance (Arbitrary k, Arbitrary a, HasNames k, HasNames a) => Arbitrary (GenDisjointKey k a) where
+  arbitrary = sized go
+    where
+      go s = do
+        n <- choose (0,s)
+        xs <- replicateM n $ do
+          a <- arbitrary -- TODO: Use UUSet to check `isSubsetOf`
+          k <- arbitrary `suchThat` (\k -> not $ (fromFoldable $ names k :: UUSet String)
+                                    `isSubsetOf` (fromFoldable $ names a :: UUSet String))
+          return (k,a)
+        return $ GenDisjointKey xs
+
 instance ( Arbitrary b
          , Eq b
          , Num b
          ) => Arbitrary (Tableau b) where
   arbitrary = do
-    us <- arbitrary
+    us <- arbitrary -- TODO: Use GenDisjointKey
     us' <- arbitrary `suchThat` (\x -> size x > 0 && size x < 100)
     rs <- arbitrary
     rs' <- arbitrary `suchThat` (\x -> size x > 0 && size x < 100)

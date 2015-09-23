@@ -80,18 +80,14 @@ instance Arbitrary LinAst where
   arbitrary = sized go
     where
       go :: Int -> Gen LinAst
-      go s = oneof
-        [ EVar <$> content
-        , ELit <$> between1000Rational
-        , liftM2 ECoeff (scale (subtract 1) arbitrary) between1000Rational
-        , liftM2 EAdd (scale (subtract 1) arbitrary) arbitrary
-        ] `suchThat` (\x -> nodeCount x < 1000 && nodeCount x < fromIntegral s)
-
-      nodeCount :: LinAst -> Integer
-      nodeCount (EVar _) = 1
-      nodeCount (ELit _) = 1
-      nodeCount (ECoeff e _) = 2 + nodeCount e
-      nodeCount (EAdd e1 e2) = nodeCount e1 + nodeCount e2 + 1
+      go s | s <= 1 = oneof [ EVar <$> content
+                            , ELit <$> between1000Rational
+                            ]
+           | otherwise = oneof [ EVar <$> content
+                               , ELit <$> between1000Rational
+                               , liftM2 ECoeff (scale (subtract 1) arbitrary) between1000Rational
+                               , liftM2 EAdd (scale (subtract 1) arbitrary) arbitrary
+                               ]
 
       content = arbitrary `suchThat` (\x -> length x < 5
                                          && not (null x)

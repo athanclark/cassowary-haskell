@@ -29,7 +29,7 @@ Library
                       , witherable
                       , these
                       , keys
-                      , sets
+                      , sets >= 0.0.5
                       , composition
                       , deepseq
                       , QuickCheck

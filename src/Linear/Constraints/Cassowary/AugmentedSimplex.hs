@@ -17,7 +17,7 @@ import Linear.Class
 import Data.Set.Class as Sets
 
 import Data.List (elemIndex)
-import Data.Maybe hiding (mapMaybe)
+import Data.Maybe hiding (mapMaybe, catMaybes)
 import Data.Monoid
 import Data.Foldable
 import Data.Witherable
@@ -26,6 +26,7 @@ import Data.Key
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
+import Control.Monad
 import Control.Applicative hiding (empty)
 
 
@@ -96,17 +97,18 @@ nextBasicDual o x =
   let osMap = unLinVarMap $ vars o
       xsMap = unLinVarMap $ vars x
       allVars = Map.keysSet osMap `union` Map.keysSet xsMap
-  in if Set.size allVars > 0
-     then let n = minimumBy (compare `on` fst) $ trim $
-                    Set.map (\col -> (,col) <$> blandRatioDual col o x) allVars
-          in if fst n > zero' then return $ snd n
-                              else Nothing
-     else Nothing
-  where
-    trim = foldr go Set.empty
-      where
-        go Nothing acc = acc
-        go (Just a) acc = Set.insert a acc
+  in do guard (size allVars > 0)
+        ns <- nonEmpty $ catMaybes $ toList $
+                Set.map (\col -> (,col) <$> blandRatioDual col o x) allVars
+        let n = minimumBy (compare `on` fst) ns
+        guard (fst n > zero')
+        return $ snd n
+
+  where nonEmpty :: Foldable f => f a -> Maybe (f a)
+        nonEmpty = guardedBy (not . null)
+
+        guardedBy :: Alternative f => (a -> Bool) -> a -> f a
+        guardedBy p x = x <$ guard (p x)
 
 
 blandRatioDual :: ( Ord b
@@ -149,6 +151,7 @@ flatten col x = case lookup col $ vars x of
 
 -- | Replaces a separate equation @f@ for a variable @x@, in some target equation @g@ -
 -- assuming @x = f@, and @1x ∈ f, and x ∈ g@.
+-- @substitute var e1 e2@ really says "replace e1 for var in e2".
 substitute :: ( Eq b
               , CanMultiplyTo b b b
               , CanMultiplyTo Rational b b
@@ -192,7 +195,7 @@ pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
       focal' = mapVars (delete col) focal
   return ( Tableau c_u
               ( BNFTableau $ insertWith col focal' $
-                  fmap (substitute col focal) basicc_s
+                  substitute col focal <$> basicc_s
               , substitute col focal <$> delete row c_s
               ) u
          , substitute col focal f
