@@ -18,6 +18,7 @@ import Data.These
 import Data.Align
 import Control.Applicative
 import Control.Monad
+import Test.QuickCheck
 
 
 onBoth :: (a -> a -> a) -> These a a -> a
@@ -27,7 +28,7 @@ onBoth f (These x y) = f x y
 
 -- | Weighted value of type @a@.
 newtype Weight a = Weight {unWeight :: [a]}
-  deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus)
+  deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus, Arbitrary)
 
 makeWeight :: Rational -> Int -> Weight Rational
 makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
@@ -68,6 +69,9 @@ instance Monoid (Weight Rational) where
 
 instance HasZero (Weight Rational) where
   zero' = Weight []
+
+instance IsZero (Weight Rational) where
+  isZero' (Weight xs) = null xs || all isZero' xs
 
 instance HasOne (Weight Rational) where
   one' = Weight $ repeat 1

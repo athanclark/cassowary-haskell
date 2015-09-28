@@ -30,6 +30,10 @@ import Control.Monad
 import Control.Applicative hiding (empty)
 
 
+
+-- TODO: Turn all of this into a class, overloaded by the coefficient type.
+-- Also, objective function should be raw Rational
+
 -- * Bland's Rule
 
 -- ** Primal
@@ -139,8 +143,6 @@ nextRowDual xs =
 flatten :: ( HasCoefficients a
            , HasVariables a
            , HasConstant (a b)
-           , HasZero b
-           , Eq b
            , CanDivideTo b b b
            , CanDivideTo Rational b Rational
            ) => LinVarName -> a b -> a b
@@ -152,13 +154,12 @@ flatten col x = case lookup col $ vars x of
 -- | Replaces a separate equation @f@ for a variable @x@, in some target equation @g@ -
 -- assuming @x = f@, and @1x ∈ f, and x ∈ g@.
 -- @substitute var e1 e2@ really says "replace e1 for var in e2".
-substitute :: ( Eq b
-              , CanMultiplyTo b b b
+substitute :: ( CanMultiplyTo b b b
               , CanMultiplyTo Rational b b
               , CanMultiplyTo Rational b Rational
               , CanSubTo b b b
               , CanSubTo Rational b Rational
-              , HasZero b
+              , IsZero b
               , HasConstant (a b)
               , HasConstant (a1 b)
               , HasCoefficients a
@@ -185,9 +186,10 @@ pivotPrimal :: ( Ord b
                , CanMultiplyTo Rational b Rational
                , CanSubTo b b b
                , CanSubTo Rational b Rational
+               , IsZero b
                , HasZero b
                ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
-pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
+pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s), f) = do
   col      <- nextBasicPrimal f
   row      <- nextRowPrimal col c_s
   focalRaw <- lookup row c_s
@@ -197,7 +199,7 @@ pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
               ( BNFTableau $ insertWith col focal' $
                   substitute col focal <$> basicc_s
               , substitute col focal <$> delete row c_s
-              ) u
+              )
          , substitute col focal f
          )
 
@@ -210,9 +212,10 @@ pivotDual :: ( Ord b
              , CanMultiplyTo Rational b Rational
              , CanSubTo b b b
              , CanSubTo Rational b Rational
+             , IsZero b
              , HasZero b
              ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
-pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
+pivotDual (Tableau c_u (BNFTableau basicc_s, c_s), f) = do
   row      <- nextRowDual c_s
   focalRaw <- lookup row c_s
   col      <- nextBasicDual f focalRaw
@@ -222,7 +225,7 @@ pivotDual (Tableau c_u (BNFTableau basicc_s, c_s) u, f) = do
               ( BNFTableau $ insertWith col focal' $
                   fmap (substitute col focal) basicc_s
               , substitute col focal <$> delete row c_s
-              ) u
+              )
          , substitute col focal f
          )
 
@@ -246,6 +249,7 @@ simplexPrimal :: ( Ord b
                  , CanMultiplyTo Rational b Rational
                  , CanSubTo b b b
                  , CanSubTo Rational b Rational
+                 , IsZero b
                  , HasZero b
                  ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexPrimal = simplexWith pivotPrimal
@@ -259,6 +263,7 @@ simplexDual :: ( Ord b
                , CanMultiplyTo Rational b Rational
                , CanSubTo b b b
                , CanSubTo Rational b Rational
+               , IsZero b
                , HasZero b
                ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
 simplexDual = simplexWith pivotDual

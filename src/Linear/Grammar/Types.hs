@@ -12,7 +12,7 @@
 
 module Linear.Grammar.Types where
 
-import Prelude hiding (zip, filter)
+import Prelude hiding (zip, filter, lookup)
 
 import Linear.Class
 import Data.Set.Class as Sets
@@ -23,7 +23,6 @@ import Data.Key
 import Data.Witherable
 import qualified Data.Map as Map
 import Control.Monad
-import Control.Arrow
 
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
@@ -32,25 +31,36 @@ import Test.QuickCheck.Instances ()
 -- * Classes
 
 class HasNames a where
-  names :: a -> [String]
-  mapNames :: (String -> String) -> a -> a
-
-instance HasNames String where
-  names x = [x]
-  mapNames = ($)
+  names :: a -> [LinVarName]
+  mapNames :: (LinVarName -> LinVarName) -> a -> a
 
 instance (HasNames a, HasNames b, Ord a) => HasNames (Map.Map a b) where
   names xs = concatMap names (Map.keys xs) ++ concatMap names xs
   mapNames f xs = Map.mapKeys (mapNames f) $ mapNames f <$> xs
 
+instance HasNames String where
+  names x = [VarMain x]
+  mapNames f = unLinVarName . f . VarMain
+
+-- | `mapNames` cannot change the name type!
+instance HasNames Integer where
+  names x = [VarSlack x]
+  mapNames f x = let (VarSlack x') = f $ VarSlack x
+                 in x'
+
+-- | `mapNames` cannot change the name type!
+instance HasNames Int where
+  names x = [VarSlack $ fromIntegral x]
+  mapNames f x = let (VarSlack x') = f $ VarSlack $ fromIntegral x
+                 in fromIntegral x'
+
 class HasVariables (a :: * -> *) where
   vars :: a b -> LinVarMap b
-  mapVars :: (LinVarMap b -> LinVarMap b0) -> a b -> a b0
+  mapVars :: (LinVarMap b0 -> LinVarMap b1) -> a b0 -> a b1
 
 class HasCoefficients (a :: * -> *) where
   coeffVals :: a b -> [b]
-  mapCoeffVals :: (b -> b0) -> a b -> a b0
-  zipViaCoeffVals :: ([b] -> [b]) -> a b -> a b
+  mapCoeffVals :: (b0 -> b1) -> a b0 -> a b1
 
 class HasConstant a where
   constVal :: a -> Rational
@@ -67,12 +77,12 @@ data LinAst =
   deriving (Show, Eq)
 
 instance HasNames LinAst where
-  names (EVar n) = [n]
-  names (ELit _) = []
+  names (EVar n)     = [VarMain n]
+  names (ELit _)     = []
   names (ECoeff e _) = names e
   names (EAdd e1 e2) = names e1 ++ names e2
-  mapNames f (EVar n) = EVar $ f n
-  mapNames _ (ELit x) = ELit x
+  mapNames f (EVar n)     = EVar . unLinVarName . f . VarMain $ n
+  mapNames _ (ELit x)     = ELit x
   mapNames f (ECoeff e c) = ECoeff (mapNames f e) c
   mapNames f (EAdd e1 e2) = EAdd (mapNames f e1) (mapNames f e2)
 
@@ -80,18 +90,18 @@ instance Arbitrary LinAst where
   arbitrary = sized go
     where
       go :: Int -> Gen LinAst
-      go s | s <= 1 = oneof [ EVar <$> content
-                            , ELit <$> between1000Rational
-                            ]
-           | otherwise = oneof [ EVar <$> content
+      go s | s <= 1 = oneof [ EVar <$> stringName
+                           , ELit <$> between1000Rational
+                           ]
+           | otherwise = oneof [ EVar <$> stringName
                                , ELit <$> between1000Rational
-                               , liftM2 ECoeff (scale (subtract 1) arbitrary) between1000Rational
-                               , liftM2 EAdd (scale (subtract 1) arbitrary) arbitrary
+                               , liftM2 ECoeff (scale (subtract 1) arbitrary)
+                                          between1000Rational
+                               , do n <- choose (0,s-1)
+                                    liftM2 EAdd (resize n arbitrary)
+                                           (resize n arbitrary)
                                ]
 
-      content = arbitrary `suchThat` (\x -> length x < 5
-                                         && not (null x)
-                                         && all isAlpha x)
 
 instance IsString LinAst where
   fromString = EVar
@@ -112,17 +122,17 @@ data ErrorSign = ErrNeg | ErrPos
   deriving (Show, Eq, Ord)
 
 instance Arbitrary ErrorSign where
-  arbitrary = boolToErrNeg <$> arbitrary
+  arbitrary = boolToErrorSign <$> arbitrary
 
 isErrPos :: ErrorSign -> Bool
 isErrPos ErrPos = True
-isErrPos _ = False
+isErrPos _      = False
 
 isErrNeg :: ErrorSign -> Bool
 isErrNeg = not . isErrPos
 
-boolToErrNeg :: Bool -> ErrorSign
-boolToErrNeg b = if b then ErrPos else ErrNeg
+boolToErrorSign :: Bool -> ErrorSign
+boolToErrorSign b = if b then ErrPos else ErrNeg
 
 data LinVarName =
     VarMain  {unVarMain :: String}
@@ -130,26 +140,26 @@ data LinVarName =
   | VarError {unVarError :: String, unVarErrorSign :: ErrorSign}
   deriving (Show, Eq, Ord)
 
+instance HasNames LinVarName where
+  names n = [n]
+  mapNames = ($)
+
 unLinVarName :: LinVarName -> String
-unLinVarName (VarMain n)  = n
-unLinVarName (VarSlack n) = show n
-unLinVarName (VarError n b) = if isErrPos b then "error_" ++ n ++ "_+"
-                                            else "error_" ++ n ++ "_-"
+unLinVarName (VarMain n)    = n
+unLinVarName (VarSlack n)   = show n
+unLinVarName (VarError n b) = "error_" ++ n ++ if isErrPos b then "_+"
+                                                           else "_-"
 
 mapLinVarName :: (String -> String) -> LinVarName -> LinVarName
-mapLinVarName f (VarMain n)  = VarMain $ f n
+mapLinVarName f (VarMain n)    = VarMain $ f n
 mapLinVarName f (VarError n b) = VarError (f n) b
-mapLinVarName _ n = n
+mapLinVarName _ n              = n
 
 instance Arbitrary LinVarName where
-  arbitrary = oneof [ VarMain  <$> content
+  arbitrary = oneof [ VarMain  <$> stringName
                     , VarSlack <$> arbitrary `suchThat` (\x -> x <= 1000 && x >= 0)
-                    , liftM2 VarError content arbitrary
+                    , liftM2 VarError stringName arbitrary
                     ]
-    where
-      content = arbitrary `suchThat` (\x -> length x < 5
-                                         && not (null x)
-                                         && all isAlpha x)
 
 
 data LinVar = LinVar
@@ -158,8 +168,8 @@ data LinVar = LinVar
   } deriving (Show, Eq)
 
 instance HasNames LinVar where
-  names (LinVar n _) = [unLinVarName n]
-  mapNames f (LinVar n c) = LinVar (mapLinVarName f n) c
+  names (LinVar n _) = [n]
+  mapNames f (LinVar n c) = LinVar (f n) c
 
 instance Arbitrary LinVar where
   arbitrary = liftM2 LinVar arbitrary between1000Rational
@@ -168,11 +178,11 @@ instance Arbitrary LinVar where
 instance Ord LinVar where
   compare (LinVar x _) (LinVar y _) = compare x y
 
-hasName :: String -> LinVar -> Bool
-hasName n (LinVar m _) = n == unLinVarName m
+linVarHasName :: String -> LinVar -> Bool
+linVarHasName n (LinVar m _) = n == unLinVarName m
 
-hasCoeff :: Rational -> LinVar -> Bool
-hasCoeff x (LinVar _ y) = x == y
+linVarHasCoeff :: Rational -> LinVar -> Bool
+linVarHasCoeff x (LinVar _ y) = x == y
 
 -- * Variables with Coefficients
 
@@ -181,21 +191,17 @@ newtype LinVarMap b = LinVarMap
   { unLinVarMap :: Map.Map LinVarName b
   } deriving (Show, Eq, Functor, Foldable, Traversable, Monoid, Lookup)
 
-coeffs :: LinVarMap b -> [b]
-coeffs (LinVarMap m) = Map.elems m
+linVarMapCoeffVals :: LinVarMap b -> [b]
+linVarMapCoeffVals (LinVarMap m) = Map.elems m
 
-mapCoeffs :: (b -> b0) -> LinVarMap b -> LinVarMap b0
-mapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
+linVarMapMapCoeffs :: (b0 -> b1) -> LinVarMap b0 -> LinVarMap b1
+linVarMapMapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
 
-zipViaCoeffs :: ([b] -> [b]) -> LinVarMap b -> LinVarMap b
-zipViaCoeffs f (LinVarMap m) = LinVarMap $ Map.fromList $ uncurry zip $ second f $ unzip $ Map.toList m
+instance (CanAddTo b b b, IsZero b) => CanAddTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
+  (LinVarMap x) .+. (LinVarMap y) = filter (not . isZero') $ LinVarMap $ Map.unionWith (.+.) x y
 
-
-instance (CanAddTo b b b, HasZero b, Eq b) => CanAddTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
-  (LinVarMap x) .+. (LinVarMap y) = filter (== zero') $ LinVarMap $ Map.unionWith (.+.) x y
-
-instance (CanSubTo b b b, HasZero b, Eq b) => CanSubTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
-  (LinVarMap x) .-. (LinVarMap y) = filter (== zero') $ LinVarMap $ Map.unionWith (.-.) x y
+instance (CanSubTo b b b, IsZero b) => CanSubTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
+  (LinVarMap x) .-. (LinVarMap y) = filter (not . isZero') $ LinVarMap $ Map.unionWith (.-.) x y
 
 type instance Key LinVarMap = LinVarName
 
@@ -210,28 +216,27 @@ deriving instance HasInsertWith LinVarName b (LinVarMap b)
 
 
 instance HasNames (LinVarMap b) where
-  names (LinVarMap x) = unLinVarName <$> Map.keys x
-  mapNames f (LinVarMap x) = LinVarMap $ Map.mapKeys (mapLinVarName f) x
+  names (LinVarMap x) = Map.keys x
+  mapNames f (LinVarMap x) = LinVarMap $ Map.mapKeys f x
 
 instance HasVariables LinVarMap where
   vars = id
   mapVars = ($)
 
 instance HasCoefficients LinVarMap where
-  coeffVals = coeffs
-  mapCoeffVals = mapCoeffs
-  zipViaCoeffVals = zipViaCoeffs
+  coeffVals    = linVarMapCoeffVals
+  mapCoeffVals = linVarMapMapCoeffs
 
-instance (Num b, Arbitrary b, Eq b) => Arbitrary (LinVarMap b) where
+instance (IsZero b, Arbitrary b) => Arbitrary (LinVarMap b) where
   arbitrary = LinVarMap <$> arbitrary `suchThat`
-    (\x -> Map.size x <= 100 && Map.size x > 0 && notElem 0 x)
+    (\x -> Map.size x <= 100 && Map.size x > 0 && not (any isZero' x))
 
 -- * Expressions
 
 -- | Linear expressions suited for normal and standard form.
 data LinExpr = LinExpr
-  { exprVars :: LinVarMap Rational
-  , exprConst  :: Rational
+  { linExprVars  :: LinVarMap Rational
+  , linExprConst :: Rational
   } deriving (Show, Eq)
 
 instance HasNames LinExpr where
@@ -247,6 +252,10 @@ instance Arbitrary LinExpr where
 
 mergeLinExpr :: LinExpr -> LinExpr -> LinExpr
 mergeLinExpr (LinExpr vs1 x) (LinExpr vs2 y) = LinExpr (vs1 `union` vs2) (x + y)
+
+instance Monoid LinExpr where
+  mempty = LinExpr mempty 0
+  mappend = mergeLinExpr
 
 
 -- * Equations
@@ -271,8 +280,14 @@ instance Arbitrary IneqExpr where
 
 -- * Standard Form Equations
 
+-- Exact equality
 data Equality b = Equ (LinVarMap b) Rational
-  deriving (Show, Eq, Functor, Foldable, Traversable) -- TODO: Make Lookup instance!
+  deriving (Show, Eq, Functor, Foldable, Traversable)
+
+type instance Key Equality = LinVarName
+
+instance Lookup Equality where
+  lookup k (Equ xs _) = lookup k xs
 
 instance HasNames (Equality b) where
   names (Equ xs _) = names xs
@@ -285,17 +300,22 @@ instance HasVariables Equality where
 instance HasCoefficients Equality where
   coeffVals (Equ xs _) = coeffVals xs
   mapCoeffVals f (Equ xs xc) = Equ (mapCoeffVals f xs) xc
-  zipViaCoeffVals f (Equ xs xc) = Equ (zipViaCoeffVals f xs) xc
 
 instance HasConstant (Equality b) where
   constVal (Equ _ xc) = xc
   mapConst f (Equ xs xc) = Equ xs $ f xc
 
-instance (Num b, Eq b, Arbitrary b) => Arbitrary (Equality b) where
+instance (IsZero b, Arbitrary b) => Arbitrary (Equality b) where
   arbitrary = liftM2 Equ arbitrary between1000Rational
 
+-- Less-than inequality
 data LInequality b = Lte (LinVarMap b) Rational
   deriving (Show, Eq, Functor, Foldable, Traversable)
+
+type instance Key LInequality = LinVarName
+
+instance Lookup LInequality where
+  lookup k (Lte xs _) = lookup k xs
 
 instance HasNames (LInequality b) where
   names (Lte xs _) = names xs
@@ -308,17 +328,22 @@ instance HasVariables LInequality where
 instance HasCoefficients LInequality where
   coeffVals (Lte xs _) = coeffVals xs
   mapCoeffVals f (Lte xs xc) = Lte (mapCoeffVals f xs) xc
-  zipViaCoeffVals f (Lte xs xc) = Lte (zipViaCoeffVals f xs) xc
 
 instance HasConstant (LInequality b) where
   constVal (Lte _ xc) = xc
   mapConst f (Lte xs xc) = Lte xs $ f xc
 
-instance (Num b, Eq b, Arbitrary b) => Arbitrary (LInequality b) where
+instance (IsZero b, Arbitrary b) => Arbitrary (LInequality b) where
   arbitrary = liftM2 Lte arbitrary between1000Rational
 
+-- Greater-than inequality
 data GInequality b = Gte (LinVarMap b) Rational
   deriving (Show, Eq, Functor, Foldable, Traversable)
+
+type instance Key GInequality = LinVarName
+
+instance Lookup GInequality where
+  lookup k (Gte xs _) = lookup k xs
 
 instance HasNames (GInequality b) where
   names (Gte xs _) = names xs
@@ -331,13 +356,12 @@ instance HasVariables GInequality where
 instance HasCoefficients GInequality where
   coeffVals (Gte xs _) = coeffVals xs
   mapCoeffVals f (Gte xs xc) = Gte (mapCoeffVals f xs) xc
-  zipViaCoeffVals f (Gte xs xc) = Gte (zipViaCoeffVals f xs) xc
 
 instance HasConstant (GInequality b) where
   constVal (Gte _ xc) = xc
   mapConst f (Gte xs xc) = Gte xs $ f xc
 
-instance (Num b, Eq b, Arbitrary b) => Arbitrary (GInequality b) where
+instance (IsZero b, Arbitrary b) => Arbitrary (GInequality b) where
   arbitrary = liftM2 Gte arbitrary between1000Rational
 
 -- | Internal structure for linear equations
@@ -346,6 +370,13 @@ data IneqStdForm b =
   | LteStd {unLteStd :: LInequality b}
   | GteStd {unGteStd :: GInequality b}
   deriving (Show, Eq, Functor, Foldable, Traversable)
+
+type instance Key IneqStdForm = LinVarName
+
+instance Lookup IneqStdForm where
+  lookup k (EquStd xs) = lookup k xs
+  lookup k (LteStd xs) = lookup k xs
+  lookup k (GteStd xs) = lookup k xs
 
 instance HasNames (IneqStdForm b) where
   names (EquStd x) = names x
@@ -370,9 +401,6 @@ instance HasCoefficients IneqStdForm where
   mapCoeffVals f (EquStd x) = EquStd $ mapCoeffVals f x
   mapCoeffVals f (LteStd x) = LteStd $ mapCoeffVals f x
   mapCoeffVals f (GteStd x) = GteStd $ mapCoeffVals f x
-  zipViaCoeffVals f (EquStd x) = EquStd $ zipViaCoeffVals f x
-  zipViaCoeffVals f (LteStd x) = LteStd $ zipViaCoeffVals f x
-  zipViaCoeffVals f (GteStd x) = GteStd $ zipViaCoeffVals f x
 
 instance HasConstant (IneqStdForm b) where
   constVal (EquStd x) = constVal x
@@ -382,7 +410,7 @@ instance HasConstant (IneqStdForm b) where
   mapConst f (LteStd x) = LteStd $ mapConst f x
   mapConst f (GteStd x) = GteStd $ mapConst f x
 
-instance (Num b, Eq b, Arbitrary b) => Arbitrary (IneqStdForm b) where
+instance (IsZero b, Arbitrary b) => Arbitrary (IneqStdForm b) where
   arbitrary = oneof
     [ EquStd <$> arbitrary
     , LteStd <$> arbitrary
@@ -390,6 +418,14 @@ instance (Num b, Eq b, Arbitrary b) => Arbitrary (IneqStdForm b) where
     ]
 
 
+
+-- * Orphan instances
+
 between1000Rational :: Gen Rational
 between1000Rational = fromIntegral <$> (arbitrary :: Gen Int)
   `suchThat` (\x -> x <= 1000 && x >= -1000)
+
+
+stringName :: Gen String
+stringName = arbitrary `suchThat`
+  (\x -> length x < 5 && not (null x) && all isAlpha x)

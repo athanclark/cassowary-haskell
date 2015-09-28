@@ -11,7 +11,6 @@ module Linear.Grammar
   , makeLinExpr
 -- * Standard Form
   , standardForm
-  , standardize
   , hasNoDups
   ) where
 
@@ -50,6 +49,7 @@ addLin = go (LinExpr (LinVarMap Map.empty) 0)
                                  (\coeff -> Map.insert (VarMain n) (coeff + x) vs) $
                                  Map.lookup (VarMain n) vs) c
     go le (EAdd e1 e2) = mergeLinExpr (go le e1) (go le e2)
+    go _ _ = error "`addLin` was used on unprocessed input."
 
 
 (.==.) :: LinAst -> LinAst -> IneqExpr
@@ -80,20 +80,20 @@ standardForm = go . standardize
                                                  | ys == mempty && xc == 0 = LteStd $ Lte xs yc -- Ax <= M
     go _ = error "Non-standard Ineq"
 
--- | Standardizes user-level inequalities - to be used before @standardForm@.
-standardize :: IneqExpr -> IneqExpr
-standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
-  | xs == mempty = EquExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
-  | ys == mempty = EquExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
-  | otherwise =
-      let ys' = mapCoeffVals ((-1 :: Rational) *) ys
-      in EquExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
-standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
-  | xs == mempty = LteExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
-  | ys == mempty = LteExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
-  | otherwise =
-      let ys' = mapCoeffVals ((-1 :: Rational) *) ys
-      in LteExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
+    -- Standardizes user-level inequalities - to be used before @standardForm@.
+    standardize :: IneqExpr -> IneqExpr
+    standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
+      | xs == mempty = EquExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
+      | ys == mempty = EquExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
+      | otherwise =
+          let ys' = mapCoeffVals ((-1 :: Rational) *) ys
+          in EquExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
+    standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
+      | xs == mempty = LteExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
+      | ys == mempty = LteExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
+      | otherwise =
+          let ys' = mapCoeffVals ((-1 :: Rational) *) ys
+          in LteExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
 
 
 hasNoDups :: Ord a => [a] -> Bool

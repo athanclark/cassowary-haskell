@@ -25,6 +25,11 @@ class HasZero a where
 instance HasZero Rational where
   zero' = 0
 
+class IsZero a where
+  isZero' :: a -> Bool
+
+instance IsZero Rational where
+  isZero' x = x == 0
 
 class HasOne a where
   one' :: a

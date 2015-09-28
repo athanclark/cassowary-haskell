@@ -46,7 +46,8 @@ newtype IneqStdFormWithMember b = IneqStdFormWithMember
 instance (Num b, Eq b, Arbitrary b) => Arbitrary (IneqStdFormWithMember b) where
   arbitrary = do
     body <- arbitrary
-    n <- oneof (return <$> Map.keys $ unLinVarMap $ vars body)
+    let ns = Map.keys $ unLinVarMap $ vars body
+    n <- oneof $ return <$> ns
     return $ IneqStdFormWithMember (n,body)
 
 prop_flatten_nonDestroy :: IneqStdFormWithMember Rational -> Bool

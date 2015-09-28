@@ -9,6 +9,7 @@ import Linear.Constraints.Tableau
 import Linear.Constraints.Cassowary
 import Linear.Grammar
 import Data.Set.Class as Sets
+import Data.Set.Unordered.Unique (unUUSet)
 
 import qualified Data.Map as Map
 import Data.Maybe
@@ -33,27 +34,32 @@ makeErrorVars :: ( Eq b
                  , CanSubTo Rational b Rational
                  , HasOne b
                  , HasNegOne b
+                 , IsZero b
                  , HasZero b
                  ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
-makeErrorVars (Tableau (BNFTableau bus, us) (BNFTableau sus, ss) u,f) =
-  let toSub = Map.fromList $ do
-        n <- u
+makeErrorVars (t@(Tableau (BNFTableau us, us') (BNFTableau rs, rs')),f) =
+  let u = unUUSet $ unrestrictedMainVars t
+      toSub = Map.fromList $ do
+        (VarMain n) <- u
         return ( VarMain n -- from Main var to its ErrVar equation
                , EquStd $ Equ (LinVarMap $ Map.fromList
                     [ (VarError n ErrPos, one')
                     , (VarError n ErrNeg, negone')
                     ]) 0
                )
-      newsus = Map.fromList $ mapMaybe (\u' -> do
-        -- Restricts unrestricted vars
-        equation <- Map.lookup u' bus
-        return ( VarError u' ErrPos
-               , mapVars (\(LinVarMap xs) -> LinVarMap $
-                  xs `union` Map.singleton (VarError u' ErrNeg) one') equation -- because (0 = 1 + -1) ~ (1 = 1)
-               )) u -- "for every basic unrestricted var, re-orient to the positive error var in basic form"
-      bus' = bus `union` Map.mapKeys (\(VarMain n) -> n) toSub -- unrestricted
-      us'  = Map.foldWithKey (fmap .* substitute) us toSub -- post-substitution
-      ss'  = Map.foldWithKey (fmap .* substitute) ss toSub
-      sus' = Map.foldWithKey (fmap .* substitute) sus toSub `union` newsus
+      newErrs = Map.fromList $ mapMaybe
+                 (\(VarMain u') -> do
+                   -- Restricts unrestricted vars
+                   equation <- Map.lookup u' us
+                   return ( VarError u' ErrPos
+                          , mapVars
+                              (\(LinVarMap xs) -> LinVarMap $ xs `union` Map.singleton (VarError u' ErrNeg) one')
+                              equation
+                          ))
+                 u -- "for every basic unrestricted var, re-orient to the positive error var in basic form"
+      newus = us `union` Map.mapKeys (\(VarMain n) -> n) toSub -- unrestricted
+      newus'  = Map.foldWithKey (fmap .* substitute) us' toSub -- post-substitution
+      newrs'  = Map.foldWithKey (fmap .* substitute) rs' toSub
+      newrs = Map.foldWithKey (fmap .* substitute) rs toSub `union` newErrs
       f' = unEquStd $ Map.foldWithKey substitute (EquStd f) toSub
-  in (Tableau (BNFTableau bus', us') (BNFTableau sus', ss') u, f')
+  in (Tableau (BNFTableau newus, newus') (BNFTableau newrs, newrs'), f')

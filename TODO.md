@@ -32,3 +32,29 @@ __FUNDEP CONFLICT__: `Rational b b` (weighted bland ratios) vs. `Rational b Rati
 ### Substitution
 - `substitute` (`b b b` and `Rational b Rational`) - remove a `b` amount from an
   equation's coefficients and constant.
+
+
+## New Version
+
+- Tableau coefficients may be polymorphic, while the objective function should be
+  constrained to Rational
+- There should be a class for Simplex and SimplexDual, which may change behavior
+  based on the instance of the coefficient - weighted sets, for instance, require
+  that we attempt one layer at a time.
+
+## Classes
+- HasName - `LinVarName`
+- HasStringName - `String` -- lossy info for Error and Slack variables
+- HasVariables - `LinVarMap`
+- HasCoefficients - `b`
+- HasConstant - `Rational`
+
+- SimplexPrimal
+  - `nextBasicPrimal`
+  - `nextRowPrimal`
+    - implicit `blandRatioPrimal`
+
+- SimplexDual
+  - `nextRowDual`
+  - `nextBasicDual`
+    - implicit `blandRatioDual`
