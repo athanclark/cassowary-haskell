@@ -18,16 +18,19 @@ import Data.Set.Class as Sets
 
 import Data.List (elemIndex)
 import Data.Maybe hiding (mapMaybe, catMaybes)
-import Data.Monoid
+import Data.Monoid hiding ((<>))
 import Data.Foldable
 import Data.Witherable
 import Data.Function (on)
+import Data.Semigroup
 import Data.Key
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
 import Control.Monad
 import Control.Applicative hiding (empty)
+
+
 
 
 
@@ -39,80 +42,65 @@ import Control.Applicative hiding (empty)
 -- ** Primal
 
 -- | Most negative coefficient in objective function
-nextBasicPrimal :: ( Ord b
-                   , HasZero b
-                   ) => Equality b -> Maybe LinVarName
-nextBasicPrimal (Equ xs _) =
+-- nextBasicPrimal :: Equality b -> Maybe LinVarName
+nextBasicPrimal (Equ xs _) = do
+  guard $ size xs > 0
   let x = minimum xs
-  in if x < zero'
-     then fst <$> find (\y -> snd y == x) (Map.toList $ unLinVarMap xs)
-     else Nothing
+  guard $ x < zero'
+  (k,_) <- find (\(_,v) -> v == x) (Map.toList $ unLinVarMap xs)
+  return k
+
+newtype Snd a b = Snd {getSnd :: (a,b)}
+
+instance Eq b => Eq (Snd a b) where
+  (Snd (_,y1)) == (Snd (_,y2)) = y1 == y2
+
+instance (Ord b) => Ord (Snd a b) where
+  (Snd (_,y1)) `compare` (Snd (_,y2)) = compare y1 y2
+
 
 -- | Finds the index of the next row to pivot on
-nextRowPrimal :: ( CanDivideTo Rational b b
-                 , HasZero b
-                 , HasConstant (a b)
-                 , HasCoefficients a
-                 , HasVariables a
-                 , Ord b
-                 , Eq (c (a b))
-                 , Eq (c b)
-                 , Functor c
-                 , Foldable c
-                 , Witherable c
-                 , Monoid (c (a b))
-                 , Monoid (c b)
-                 ) => LinVarName -> c (a b) -> Maybe Int
-nextRowPrimal col xs | xs == mempty = Nothing
-                     | otherwise = smallest >> index
-  where
-    index :: Maybe Int
-    index = elemIndex smallest $ toList $ fmap (blandRatioPrimal col) xs
-    smallest = case mapMaybe (blandRatioPrimal col) xs of
-      xs' | xs' == mempty -> Nothing
-          | otherwise     -> Just $ minimum xs'
+nextRowPrimalRational :: LinVarName -> IntMap.IntMap (IneqStdForm Rational) -> Maybe Int
+nextRowPrimalRational col xs = do
+  let (Option mKeyVal) = foldMapWithKey
+                             (\k v -> Option $ (\r -> Min $ Snd (k,r)) <$> blandRatioPrimal col v)
+                             xs
+  (k,v) <- (getSnd . getMin) <$> mKeyVal
+  guard $ v < 0
+  return k
 
 
 -- | Bland's method.
-blandRatioPrimal :: ( CanDivideTo Rational b b
-                    , HasConstant (a b)
-                    , HasCoefficients a
-                    , HasVariables a
-                    , HasZero b
-                    , Ord b
-                    ) => LinVarName -> a b -> Maybe b
+blandRatioPrimal :: LinVarName -> IneqStdForm Rational -> Maybe Rational
 blandRatioPrimal col x = do
   coeff <- lookup col $ vars x
-  if coeff < zero' then return $ constVal x ./. coeff
-                   else Nothing
--- TODO: safe division - should be `[x] ./. [x] ~ [Maybe x]` - somehow figure out
--- a good way to order those, to find the minimum.
--- 0 ~ [] ~ [Nothing]
+  guard $ coeff < 0
+  return $ constVal x / coeff
 
 
 -- ** Dual
 
-nextBasicDual :: ( Ord b
-                 , CanDivideTo b b b
-                 , HasZero b
-                 , HasVariables a
-                 ) => Equality b -> a b -> Maybe LinVarName
+newtype Fst a b = Fst {getFst :: (a,b)}
+
+instance Ord a => Semigroup (Min (Fst a b)) where
+  (Min (Fst (x1,y1))) <> (Min (Fst (x2,y2))) | x1 < x2   = Min $ Fst (x1,y1)
+                                             | otherwise = Min $ Fst (x2,y2)
+
+-- nextBasicDual :: ( Ord b
+--                  , CanDivideTo b b b
+--                  , HasZero b
+--                  , HasVariables a
+--                  ) => Equality b -> a b -> Maybe LinVarName
 nextBasicDual o x =
   let osMap = unLinVarMap $ vars o
       xsMap = unLinVarMap $ vars x
-      allVars = Map.keysSet osMap `union` Map.keysSet xsMap
-  in do guard (size allVars > 0)
-        ns <- nonEmpty $ catMaybes $ toList $
-                Set.map (\col -> (,col) <$> blandRatioDual col o x) allVars
-        let n = minimumBy (compare `on` fst) ns
-        guard (fst n > zero')
-        return $ snd n
-
-  where nonEmpty :: Foldable f => f a -> Maybe (f a)
-        nonEmpty = guardedBy (not . null)
-
-        guardedBy :: Alternative f => (a -> Bool) -> a -> f a
-        guardedBy p x = x <$ guard (p x)
+      allVars = osMap `union` xsMap
+  in do let (Option mKeyVar) = foldMapWithKey
+                                   (\col _ -> Option ((\r -> Min $ Snd (col,r)) <$> blandRatioDual col o x))
+                                   allVars
+        (k,v) <- (getSnd . getMin) <$> mKeyVar
+        guard (v > zero')
+        return k
 
 
 blandRatioDual :: ( Ord b
@@ -123,8 +111,8 @@ blandRatioDual :: ( Ord b
 blandRatioDual col o x = do
   o' <- lookup col $ vars o
   x' <- lookup col $ vars x
-  if x' > zero' then return $ o' ./. x'
-                else Nothing
+  guard $ x' > zero'
+  return $ o' ./. x'
 
 
 nextRowDual :: ( Eq (a b)
@@ -154,116 +142,110 @@ flatten col x = case lookup col $ vars x of
 -- | Replaces a separate equation @f@ for a variable @x@, in some target equation @g@ -
 -- assuming @x = f@, and @1x ∈ f, and x ∈ g@.
 -- @substitute var e1 e2@ really says "replace e1 for var in e2".
-substitute :: ( CanMultiplyTo b b b
-              , CanMultiplyTo Rational b b
-              , CanMultiplyTo Rational b Rational
-              , CanSubTo b b b
-              , CanSubTo Rational b Rational
-              , IsZero b
-              , HasConstant (a b)
-              , HasConstant (a1 b)
-              , HasCoefficients a
-              , HasVariables a
-              , HasVariables a1
-              ) => LinVarName -> a b -> a1 b -> a1 b
+-- substitute :: ( CanMultiplyTo b0 b1 b1
+--               , CanMultiplyTo Rational b1 b1
+--               , CanMultiplyTo Rational b0 Rational
+--               , CanSubTo b0 b0 b0
+--               , CanSubTo Rational b0 Rational
+--               , IsZero b0
+--               , HasConstant (a0 b)
+--               , HasConstant (a1 b)
+--               , HasCoefficients a0
+--               , HasVariables a0
+--               , HasVariables a1
+--               ) => LinVarName -> a0 b0 -> a1 b1 -> a1 b1
 substitute col replacement target =
   case lookup col $ vars target of
-    Just coeff -> let replacement' = mapCoeffVals (.*. coeff)
-                                   $ mapConst (.*. coeff) replacement
-                  in mapVars  (.-. vars replacement')
-                   $ mapConst (.-. constVal replacement') target
-    Nothing -> target
+    Just existing -> let replacement' = mapCoeffVals (.*. existing)
+                                      $ mapConst (.*. existing) replacement
+                     in mapVars  (.-. vars replacement')
+                     $ mapConst (.-. constVal replacement') target
+    Nothing       -> target
 
 -- * Pivots
 
 -- | Performs a single primal pivot, maximizing the basic feasible solution.
-pivotPrimal :: ( Ord b
-               , CanDivideTo b b b
-               , CanDivideTo Rational b b
-               , CanDivideTo Rational b Rational
-               , CanMultiplyTo b b b
-               , CanMultiplyTo Rational b b
-               , CanMultiplyTo Rational b Rational
-               , CanSubTo b b b
-               , CanSubTo Rational b Rational
-               , IsZero b
-               , HasZero b
-               ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
-pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s), f) = do
-  col      <- nextBasicPrimal f
-  row      <- nextRowPrimal col c_s
-  focalRaw <- lookup row c_s
-  let focal = flatten col focalRaw
-      focal' = mapVars (delete col) focal
-  return ( Tableau c_u
-              ( BNFTableau $ insertWith col focal' $
-                  substitute col focal <$> basicc_s
-              , substitute col focal <$> delete row c_s
-              )
-         , substitute col focal f
-         )
+-- pivotPrimal :: ( Ord b
+--                , CanDivideTo b b b
+--                , CanDivideTo Rational b b
+--                , CanDivideTo Rational b Rational
+--                , CanMultiplyTo b b b
+--                , CanMultiplyTo Rational b b
+--                , CanMultiplyTo Rational b Rational
+--                , CanSubTo b b b
+--                , CanSubTo Rational b Rational
+--                , IsZero b
+--                , HasZero b
+--                ) => (Tableau b, Equality Rational) -> Maybe (Tableau b, Equality b)
+-- pivotPrimal (Tableau c_u (BNFTableau basicc_s, c_s), f) = do
+--   col      <- nextBasicPrimal f
+--   row      <- nextRowPrimal col c_s
+--   focalRaw <- lookup row c_s
+--   let focal = flatten col focalRaw
+--       focal' = mapVars (delete col) focal
+--   return ( Tableau c_u
+--               ( BNFTableau $ insertWith col focal' $
+--                   substitute col focal <$> basicc_s
+--               , substitute col focal <$> delete row c_s
+--               )
+--          , substitute col focal f
+--          )
 
--- | Performs a single dual pivot, minimizing the basic feasible solution.
-pivotDual :: ( Ord b
-             , CanDivideTo b b b
-             , CanDivideTo Rational b Rational
-             , CanMultiplyTo b b b
-             , CanMultiplyTo Rational b b
-             , CanMultiplyTo Rational b Rational
-             , CanSubTo b b b
-             , CanSubTo Rational b Rational
-             , IsZero b
-             , HasZero b
-             ) => (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
-pivotDual (Tableau c_u (BNFTableau basicc_s, c_s), f) = do
-  row      <- nextRowDual c_s
-  focalRaw <- lookup row c_s
-  col      <- nextBasicDual f focalRaw
-  let focal = flatten col focalRaw
-      focal' = mapVars (delete col) focal
-  return ( Tableau c_u
-              ( BNFTableau $ insertWith col focal' $
-                  fmap (substitute col focal) basicc_s
-              , substitute col focal <$> delete row c_s
-              )
-         , substitute col focal f
-         )
+
+class PivotDual b where
+  pivotDual :: (Tableau b, Equality b) -> Maybe (Tableau b, Equality b)
+
+
+instance PivotDual Rational where
+  pivotDual (Tableau c_u (BNFTableau basicc_s, c_s), f) = do
+    row      <- nextRowDual c_s
+    focalRaw <- lookup row c_s
+    col      <- nextBasicDual f focalRaw
+    let focal = flatten col focalRaw
+        focal' = mapVars (delete col) focal
+    return ( Tableau c_u
+                ( BNFTableau $ insertWith col focal' $
+                    substitute col focal <$> basicc_s
+                , substitute col focal <$> delete row c_s
+                )
+           , substitute col focal f
+           )
 
 -- | Optimize when given a pivot function
 simplexWith :: (
-               ) => ((Tableau b, Equality b) -> Maybe (Tableau b, Equality b))
-                 -> (Tableau b, Equality b)
-                 -> (Tableau b, Equality b)
+               ) => ((Tableau b, Equality Rational) -> Maybe (Tableau b, Equality Rational))
+                 -> (Tableau b, Equality Rational)
+                 -> (Tableau b, Equality Rational)
 simplexWith piv x =
  case piv x of
    Just (cs,f) -> simplexWith piv (cs,f)
    Nothing -> x
 
 -- | Primal maximizing optimization
-simplexPrimal :: ( Ord b
-                 , CanDivideTo b b b
-                 , CanDivideTo Rational b b
-                 , CanDivideTo Rational b Rational
-                 , CanMultiplyTo b b b
-                 , CanMultiplyTo Rational b b
-                 , CanMultiplyTo Rational b Rational
-                 , CanSubTo b b b
-                 , CanSubTo Rational b Rational
-                 , IsZero b
-                 , HasZero b
-                 ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
-simplexPrimal = simplexWith pivotPrimal
+-- simplexPrimal :: ( Ord b
+--                  , CanDivideTo b b b
+--                  , CanDivideTo Rational b b
+--                  , CanDivideTo Rational b Rational
+--                  , CanMultiplyTo b b b
+--                  , CanMultiplyTo Rational b b
+--                  , CanMultiplyTo Rational b Rational
+--                  , CanSubTo b b b
+--                  , CanSubTo Rational b Rational
+--                  , IsZero b
+--                  , HasZero b
+--                  ) => (Tableau b, Equality Rational) -> (Tableau b, Equality Rational)
+-- simplexPrimal = simplexWith pivotPrimal
 
 -- | Primal maximizing optimization
-simplexDual :: ( Ord b
-               , CanDivideTo b b b
-               , CanDivideTo Rational b Rational
-               , CanMultiplyTo b b b
-               , CanMultiplyTo Rational b b
-               , CanMultiplyTo Rational b Rational
-               , CanSubTo b b b
-               , CanSubTo Rational b Rational
-               , IsZero b
-               , HasZero b
-               ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
+-- simplexDual :: ( Ord b
+--                , CanDivideTo b b b
+--                , CanDivideTo Rational b Rational
+--                , CanMultiplyTo b b b
+--                , CanMultiplyTo Rational b b
+--                , CanMultiplyTo Rational b Rational
+--                , CanSubTo b b b
+--                , CanSubTo Rational b Rational
+--                , IsZero b
+--                , HasZero b
+--                ) => (Tableau b, Equality Rational) -> (Tableau b, Equality Rational)
 simplexDual = simplexWith pivotDual

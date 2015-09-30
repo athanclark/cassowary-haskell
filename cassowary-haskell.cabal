@@ -30,6 +30,7 @@ Library
                       , these
                       , keys
                       , sets >= 0.0.5
+                      , semigroups
                       , composition
                       , deepseq
                       , QuickCheck
