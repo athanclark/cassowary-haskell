@@ -36,8 +36,8 @@ makeErrorVars :: ( Eq b
                  , HasNegOne b
                  , IsZero b
                  , HasZero b
-                 ) => (Tableau b, Equality b) -> (Tableau b, Equality b)
-makeErrorVars (t@(Tableau (BNFTableau us, us') (BNFTableau rs, rs')),f) =
+                 ) => Tableau b -> (Tableau b, Equality b)
+makeErrorVars t@(Tableau (BNFTableau us, us') (BNFTableau rs, rs')) =
   let u = unUUSet $ unrestrictedMainVars t
       toSub = Map.fromList $ do
         (VarMain n) <- u
@@ -61,5 +61,8 @@ makeErrorVars (t@(Tableau (BNFTableau us, us') (BNFTableau rs, rs')),f) =
       newus'  = Map.foldWithKey (fmap .* substitute) us' toSub -- post-substitution
       newrs'  = Map.foldWithKey (fmap .* substitute) rs' toSub
       newrs = Map.foldWithKey (fmap .* substitute) rs toSub `union` newErrs
-      f' = unEquStd $ Map.foldWithKey substitute (EquStd f) toSub
+      f' = Equ (LinVarMap $ Map.fromList $ concatMap
+                  (\(VarMain n) -> [(VarError n ErrPos,one'),(VarError n ErrNeg,one')])
+                  u)
+               0
   in (Tableau (BNFTableau newus, newus') (BNFTableau newrs, newrs'), f')

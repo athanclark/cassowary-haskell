@@ -17,7 +17,6 @@ Library
                         Linear.Grammar
                         Linear.Grammar.Types
                         Linear.Constraints.Slack
-                        Linear.Constraints.Error
                         Linear.Constraints.Tableau
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex

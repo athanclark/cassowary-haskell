@@ -9,6 +9,7 @@ module Linear.Constraints.Weights
   ( Weight (..)
   , makeWeight
   , withWeight
+  , compressWeight
   ) where
 
 import Linear.Class
@@ -16,6 +17,8 @@ import Linear.Grammar
 
 import Data.These
 import Data.Align
+import Data.Foldable
+import Data.Monoid
 import Control.Applicative
 import Control.Monad
 import Test.QuickCheck
@@ -37,26 +40,18 @@ makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
 -- | Applies @makeWeight@ to each coefficient after turning the input into
 -- @standardForm@.
 withWeight :: IneqExpr -> Int -> IneqStdForm (Weight Rational)
-withWeight x w = mapVars (mapCoeffs $ flip makeWeight w) $ standardForm x
+withWeight x w = mapVars (mapCoeffVals $ flip makeWeight w) $ standardForm x
 
 
 instance (Eq a, Num a) => Eq (Weight a) where
-  (Weight xs') == (Weight ys') = go xs' ys'
-    where
-      go [] [] = True
-      go xs [] = go xs [0]
-      go [] ys = go [0] ys
-      go (x:xs) (y:ys) = x == y && go xs ys
+  (Weight x) == (Weight y) = getAll . fold $ alignWith (All . these (== 0) (== 0) (==)) x y
 
 instance (Ord a, Num a) => Ord (Weight a) where
-  compare (Weight xs') (Weight ys') = go xs' ys'
-    where
-      go [] [] = EQ
-      go xs [] = go xs [0]
-      go [] ys = go [0] ys
-      go (x:xs) (y:ys) = case compare x y of
-        EQ -> go xs ys
-        r -> r
+  compare (Weight xs) (Weight ys) = fold $ zipWith compare xs ys
+
+compressWeight :: Weight Rational -> Rational
+compressWeight (Weight xs) = sum xs
+
 
 -- Arithmetic Instances
 
