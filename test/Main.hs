@@ -12,4 +12,7 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Testing..."
-  [grammarSpec, slackSpec, cassowarySpec]
+  [ grammarSpec
+  , slackSpec
+  , cassowarySpec
+  ]

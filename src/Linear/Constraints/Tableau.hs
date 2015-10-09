@@ -15,15 +15,12 @@ import Prelude hiding (lookup)
 
 import Linear.Constraints.Slack
 import Linear.Grammar
-import Linear.Class
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
-import Data.Foldable
 import Data.Semigroup
 import Control.Monad
-import Control.Arrow
 
 import Test.QuickCheck
 

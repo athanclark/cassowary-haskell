@@ -11,8 +11,6 @@ import Linear.Constraints.Cassowary
 import Linear.Grammar
 import Linear.Class
 import Linear.Constraints.Tableau
-import Data.Set.Class as Sets
-import Data.Key
 import Data.Maybe (isNothing)
 
 import qualified Data.Map as Map
@@ -43,7 +41,7 @@ newtype IneqStdFormWithMember b = IneqStdFormWithMember
   {unIneqStdFormWithMember :: (LinVarName, IneqStdForm b)}
   deriving (Show, Eq)
 
-instance (Num b, Eq b, Arbitrary b) => Arbitrary (IneqStdFormWithMember b) where
+instance (Arbitrary b, IsZero b) => Arbitrary (IneqStdFormWithMember b) where
   arbitrary = do
     body <- arbitrary
     let ns = Map.keys $ unLinVarMap $ vars body
@@ -67,11 +65,11 @@ prop_flatten_1 (IneqStdFormWithMember (n,x)) =
 
 prop_substitute_self0 :: IneqStdFormWithMember Rational -> Bool
 prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
-  null $ coeffVals $ substitute n (flatten n x) (flatten n x)
+  null $ coeffVals $ substituteRational n (flatten n x) (flatten n x)
 
 prop_substitute_any0 :: IneqStdFormWithMember Rational -> IneqStdForm Rational -> Bool
 prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
-  isNothing $ lookup n $ vars $ substitute n (flatten n x) y
+  isNothing $ Map.lookup n $ unLinVarMap $ vars $ substituteRational n (flatten n x) y
 
 -- unitTests :: TestTree
 -- unitTests = testGroup "Unit Tests"
@@ -118,5 +116,3 @@ prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
 --       Map.fromList [("Z",13),("x1",5),("x2",4)]
 --   ]
 
-instance Arbitrary Rational where
-  arbitrary = between1000Rational

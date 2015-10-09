@@ -5,7 +5,6 @@
 module Linear.Constraints.Slack where
 
 import Linear.Grammar
-import Linear.Class
 
 import qualified Data.IntMap as IntMap
 import Data.STRef

@@ -38,6 +38,16 @@ Test-Suite spec
                       , test
   Ghc-Options:          -Wall -threaded -O2
   Main-Is:              Main.hs
+  Other-Modules:        Linear.Class
+                        Linear.Constraints.Cassowary
+                        Linear.Constraints.Cassowary.AugmentedSimplex
+                        Linear.Constraints.CassowarySpec
+                        Linear.Constraints.Slack
+                        Linear.Constraints.SlackSpec
+                        Linear.Constraints.Tableau
+                        Linear.Grammar
+                        Linear.Grammar.Types
+                        Linear.GrammarSpec 
   Build-Depends:        base
                       , tasty
                       , tasty-quickcheck
@@ -49,6 +59,8 @@ Test-Suite spec
                       , transformers-base
                       , containers
                       , these
+                      , semigroups
+                      , vector
 
 Benchmark profile
   Type:                 exitcode-stdio-1.0

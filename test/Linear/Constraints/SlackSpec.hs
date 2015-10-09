@@ -32,6 +32,3 @@ prop_makeSlackVars_equ x = all isEqu $ makeSlackVars x
     isEqu :: IneqStdForm b -> Bool
     isEqu (EquStd _) = True
     isEqu _ = False
-
-instance Arbitrary Rational where
-  arbitrary = between1000Rational
