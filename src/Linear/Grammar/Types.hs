@@ -15,12 +15,10 @@ module Linear.Grammar.Types where
 import Prelude hiding (zip, filter, lookup)
 
 import Linear.Class
-import Data.Set.Class as Sets
 
 import Data.Char
 import Data.String
-import Data.Key
-import Data.Witherable
+import Data.Semigroup
 import qualified Data.Map as Map
 import Control.Monad
 
@@ -189,7 +187,7 @@ linVarHasCoeff x (LinVar _ y) = x == y
 -- | Mapping from variable names, to a polymorphic coefficient type.
 newtype LinVarMap b = LinVarMap
   { unLinVarMap :: Map.Map LinVarName b
-  } deriving (Show, Eq, Functor, Foldable, Traversable, Monoid, Lookup)
+  } deriving (Show, Eq, Functor, Foldable, Traversable, Semigroup, Monoid)
 
 linVarMapCoeffVals :: LinVarMap b -> [b]
 linVarMapCoeffVals (LinVarMap m) = Map.elems m
@@ -198,22 +196,10 @@ linVarMapMapCoeffs :: (b0 -> b1) -> LinVarMap b0 -> LinVarMap b1
 linVarMapMapCoeffs f (LinVarMap m) = LinVarMap $ f <$> m
 
 instance (CanAddTo b b b, IsZero b) => CanAddTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
-  (LinVarMap x) .+. (LinVarMap y) = filter (not . isZero') $ LinVarMap $ Map.unionWith (.+.) x y
+  (LinVarMap x) .+. (LinVarMap y) = LinVarMap $ Map.filter (not . isZero') $ Map.unionWith (.+.) x y
 
 instance (CanSubTo b b b, IsZero b) => CanSubTo (LinVarMap b) (LinVarMap b) (LinVarMap b) where
-  (LinVarMap x) .-. (LinVarMap y) = filter (not . isZero') $ LinVarMap $ Map.unionWith (.-.) x y
-
-type instance Key LinVarMap = LinVarName
-
-instance Witherable LinVarMap where
-  wither f (LinVarMap xs) = LinVarMap <$> wither f xs
-
-deriving instance HasUnion                   (LinVarMap b)
-deriving instance HasIntersection            (LinVarMap b)
-deriving instance HasDifference              (LinVarMap b)
-deriving instance HasDelete LinVarName       (LinVarMap b)
-deriving instance HasInsertWith LinVarName b (LinVarMap b)
-
+  (LinVarMap x) .-. (LinVarMap y) = LinVarMap $ Map.filter (not . isZero') $ Map.unionWith (.-.) x y
 
 instance HasNames (LinVarMap b) where
   names (LinVarMap x) = Map.keys x
@@ -251,7 +237,7 @@ instance Arbitrary LinExpr where
   arbitrary = liftM2 LinExpr arbitrary between1000Rational
 
 mergeLinExpr :: LinExpr -> LinExpr -> LinExpr
-mergeLinExpr (LinExpr vs1 x) (LinExpr vs2 y) = LinExpr (vs1 `union` vs2) (x + y)
+mergeLinExpr (LinExpr vs1 x) (LinExpr vs2 y) = LinExpr (vs1 <> vs2) (x + y)
 
 instance Monoid LinExpr where
   mempty = LinExpr mempty 0
@@ -284,11 +270,6 @@ instance Arbitrary IneqExpr where
 data Equality b = Equ (LinVarMap b) Rational
   deriving (Show, Eq, Functor, Foldable, Traversable)
 
-type instance Key Equality = LinVarName
-
-instance Lookup Equality where
-  lookup k (Equ xs _) = lookup k xs
-
 instance HasNames (Equality b) where
   names (Equ xs _) = names xs
   mapNames f (Equ xs xc) = Equ (mapNames f xs) xc
@@ -312,11 +293,6 @@ instance (IsZero b, Arbitrary b) => Arbitrary (Equality b) where
 data LInequality b = Lte (LinVarMap b) Rational
   deriving (Show, Eq, Functor, Foldable, Traversable)
 
-type instance Key LInequality = LinVarName
-
-instance Lookup LInequality where
-  lookup k (Lte xs _) = lookup k xs
-
 instance HasNames (LInequality b) where
   names (Lte xs _) = names xs
   mapNames f (Lte xs xc) = Lte (mapNames f xs) xc
@@ -339,11 +315,6 @@ instance (IsZero b, Arbitrary b) => Arbitrary (LInequality b) where
 -- Greater-than inequality
 data GInequality b = Gte (LinVarMap b) Rational
   deriving (Show, Eq, Functor, Foldable, Traversable)
-
-type instance Key GInequality = LinVarName
-
-instance Lookup GInequality where
-  lookup k (Gte xs _) = lookup k xs
 
 instance HasNames (GInequality b) where
   names (Gte xs _) = names xs
@@ -370,13 +341,6 @@ data IneqStdForm b =
   | LteStd {unLteStd :: LInequality b}
   | GteStd {unGteStd :: GInequality b}
   deriving (Show, Eq, Functor, Foldable, Traversable)
-
-type instance Key IneqStdForm = LinVarName
-
-instance Lookup IneqStdForm where
-  lookup k (EquStd xs) = lookup k xs
-  lookup k (LteStd xs) = lookup k xs
-  lookup k (GteStd xs) = lookup k xs
 
 instance HasNames (IneqStdForm b) where
   names (EquStd x) = names x

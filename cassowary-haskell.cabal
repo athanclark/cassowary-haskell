@@ -25,15 +25,11 @@ Library
                       , transformers
                       , transformers-base
                       , containers
-                      , witherable
                       , these
-                      , keys
-                      , sets >= 0.0.5
                       , semigroups
-                      , composition
-                      , deepseq
                       , QuickCheck
                       , quickcheck-instances
+                      , vector
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
@@ -52,11 +48,7 @@ Test-Suite spec
                       , transformers
                       , transformers-base
                       , containers
-                      , witherable
                       , these
-                      , keys
-                      , sets
-                      , composition
 
 Benchmark profile
   Type:                 exitcode-stdio-1.0

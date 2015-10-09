@@ -23,21 +23,19 @@ import Control.Monad.Base
 -- >     x  >= c
 -- > x + s1  = c
 makeSlackVars :: ( Foldable f
-                 , HasNegate b
-                 ) => f (IneqStdForm b)
-                   -> IntMap.IntMap (IneqStdForm b)
+                 ) => f (IneqStdForm Rational)
+                   -> IntMap.IntMap (IneqStdForm Rational)
 makeSlackVars xs' = runST $ do
   k <- newSTRef 0
   runReaderT (foldlM mkSlackStdForm mempty xs') k
   where
     mkSlackStdForm :: ( MonadReader (STRef s Int) m
                       , MonadBase (ST s) m
-                      , HasNegate b
-                      ) => IntMap.IntMap (IneqStdForm b)
-                        -> IneqStdForm b
-                        -> m (IntMap.IntMap (IneqStdForm b))
+                      ) => IntMap.IntMap (IneqStdForm Rational)
+                        -> IneqStdForm Rational
+                        -> m (IntMap.IntMap (IneqStdForm Rational))
     mkSlackStdForm acc (GteStd (Gte (LinVarMap xs) xc)) =
-      mkSlackStdForm acc $ LteStd $ Lte (LinVarMap $ fmap negate' xs) $ negate' xc
+      mkSlackStdForm acc $ LteStd $ Lte (LinVarMap $ fmap negate xs) $ negate xc
     mkSlackStdForm acc c = do
       k <- ask
       i <- liftBase $ readSTRef k

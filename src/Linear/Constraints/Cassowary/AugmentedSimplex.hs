@@ -9,27 +9,19 @@
 
 module Linear.Constraints.Cassowary.AugmentedSimplex where
 
-import Prelude hiding (foldr, minimum, zip, lookup, empty, filter)
+import Prelude hiding (foldr, minimum, zip, lookup, filter)
 
 import Linear.Constraints.Tableau
 import Linear.Constraints.Weights
 import Linear.Grammar
 import Linear.Class
-import Data.Set.Class as Sets
 
-import Data.List (elemIndex)
 import Data.Maybe hiding (mapMaybe, catMaybes)
-import Data.Monoid hiding ((<>))
-import Data.Foldable
-import Data.Witherable
-import Data.Function (on)
 import Data.Semigroup
-import Data.Key
+import Data.Vector as V hiding (length, all)
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
 import Control.Monad
-import Control.Applicative hiding (empty)
 
 
 
@@ -52,60 +44,84 @@ instance (Ord b) => Ord (Snd a b) where
 
 
 -- | Most negative coefficient in objective function
-nextBasicPrimal :: Equality Rational -> Maybe LinVarName
-nextBasicPrimal (Equ xs _) = do
-  let (Option mKeyVal) = foldMapWithKey
+nextBasicPrimalRational :: Equality Rational -> Maybe LinVarName
+nextBasicPrimalRational (Equ xs _) = do
+  let (Option mKeyVal) = Map.foldMapWithKey
                              (\var coeff -> Option $ Just $ Min $ Snd (var,coeff))
                              (unLinVarMap xs)
   (var,coeff) <- (getSnd . getMin) <$> mKeyVal
   guard $ coeff < 0
   return var
 
+nextBasicPrimalWeight :: Equality (Weight Rational) -> Maybe LinVarName
+nextBasicPrimalWeight (Equ (LinVarMap xs) xc) = do
+  go 0
+  where
+    go n | all (\(Weight x) -> length x <= n) xs = Nothing
+         | otherwise = getFirst $
+             First (nextBasicPrimalRational $
+               Equ (LinVarMap $ Map.mapMaybe (\(Weight y) -> y !? n) xs) xc)
+          <> First (go $ n+1)
+
+
+
 -- | Finds the index of the next row to pivot on
-nextRowPrimalRational :: LinVarName -> IntMap.IntMap (IneqStdForm Rational) -> Maybe Int
-nextRowPrimalRational var xs = do
-  let (Option mKeyVal) = foldMapWithKey
+nextRowPrimal :: LinVarName -> IntMap.IntMap (IneqStdForm Rational) -> Maybe Int
+nextRowPrimal var xs = do
+  let (Option mKeyVal) = IntMap.foldMapWithKey
                              (\slack row -> Option $ (\ratio -> Min $ Snd (slack,ratio)) <$>
                                                          blandRatioPrimal var row)
                              xs
-  (slack,ratio) <- (getSnd . getMin) <$> mKeyVal
+  (slack,_) <- (getSnd . getMin) <$> mKeyVal
   return slack
 
 
 -- | Bland's method.
 blandRatioPrimal :: LinVarName -> IneqStdForm Rational -> Maybe Rational
 blandRatioPrimal var row = do
-  coeff <- lookup var $ vars row
+  coeff <- Map.lookup var $ unLinVarMap $ vars row
   guard $ coeff < 0
   return $ constVal row / coeff
 
 
 -- ** Dual
 
-nextBasicDual :: Equality Rational -> IneqStdForm Rational -> Maybe LinVarName
-nextBasicDual objective row =
+nextBasicDualRational :: Equality Rational -> IneqStdForm Rational -> Maybe LinVarName
+nextBasicDualRational objective row =
   let osMap = unLinVarMap $ vars objective
       xsMap = unLinVarMap $ vars row
-      allVars = osMap `union` xsMap
-  in do let (Option mKeyVar) = foldMapWithKey
+      allVars = osMap <> xsMap
+  in do let (Option mKeyVar) = Map.foldMapWithKey
                                    (\var _ -> Option $ (\ratio -> Min $ Snd (var,ratio)) <$>
-                                                           blandRatioDual var objective row)
+                                                           blandRatioDualRational var objective row)
                                    allVars
         (var,_) <- (getSnd . getMin) <$> mKeyVar
         return var
 
+nextBasicDualWeight :: Equality (Weight Rational) -> IneqStdForm Rational -> Maybe LinVarName
+nextBasicDualWeight (Equ (LinVarMap xs) xc) row =
+  go 0
+  where
+    go n | all (\(Weight x) -> length x <= n) xs = Nothing
+         | otherwise = getFirst $
+             First (nextBasicDualRational
+                      (Equ (LinVarMap $ Map.mapMaybe (\(Weight y) ->
+                                                          y !? n) xs) xc)
+                      row)
+          <> First (go $ n+1)
 
-blandRatioDual :: LinVarName -> Equality Rational -> IneqStdForm Rational -> Maybe Rational
-blandRatioDual var objective row = do
-  let o = fromMaybe 0 $ lookup var $ vars objective
-  x <- lookup var $ vars row
+
+blandRatioDualRational :: LinVarName -> Equality Rational -> IneqStdForm Rational -> Maybe Rational
+blandRatioDualRational var objective row = do
+  let o = fromMaybe 0 $ Map.lookup var $ unLinVarMap $ vars objective
+  x <- Map.lookup var $ unLinVarMap $ vars row
   guard $ x > 0
   return $ o / x
 
 
 nextRowDual :: IntMap.IntMap (IneqStdForm Rational) -> Maybe Int
 nextRowDual xs = do
-  let (Option mKeyVal) = foldMapWithKey
+  let (Option mKeyVal) = IntMap.foldMapWithKey
                              (\slack row -> Option (Just (Min (Snd (slack,constVal row)))))
                              xs
   (slack,const) <- (getSnd . getMin) <$> mKeyVal
@@ -116,7 +132,7 @@ nextRowDual xs = do
 
 -- | Orients / refactors an equation for one of its variables
 flatten :: LinVarName -> IneqStdForm Rational -> IneqStdForm Rational
-flatten var row = case lookup var $ vars row of
+flatten var row = case Map.lookup var $ unLinVarMap $ vars row of
   Just coeff -> mapConst (/ coeff) $ mapCoeffVals (/ coeff) row
   Nothing    -> error "`flatten` should be called with a variable that exists in the equation"
 
@@ -127,7 +143,7 @@ substituteRational :: LinVarName
                    -> IneqStdForm Rational -- ^ Subject
                    -> IneqStdForm Rational
 substituteRational var replacement target =
-  case lookup var (vars target) of
+  case Map.lookup var $ unLinVarMap $ vars target of
     Just existingCoeff -> let magnifiedReplacement =
                                 mapCoeffVals (existingCoeff *) $
                                 mapConst (existingCoeff *) replacement
@@ -140,7 +156,7 @@ substituteWeight :: LinVarName
                  -> IneqStdForm (Weight Rational)
                  -> IneqStdForm (Weight Rational)
 substituteWeight var replacement target =
-  case lookup var (vars target) of
+  case Map.lookup var $ unLinVarMap $ vars target of
     Just existingCoeff -> let magnifiedReplacement =
                                 mapCoeffVals (\c -> fmap (c *) existingCoeff) $
                                 mapConst ((compressWeight existingCoeff) *) replacement
@@ -152,33 +168,39 @@ substituteWeight var replacement target =
 -- * Pivots
 
 -- | Performs a single primal pivot, maximizing the basic feasible solution.
-pivotPrimalRational :: (Tableau, Equality Rational) -> Maybe (Tableau, Equality Rational)
-pivotPrimalRational (Tableau us us' basicc_s c_s, objective) = do
-  var   <- nextBasicPrimal objective
-  slack <- nextRowPrimalRational var c_s
+pivotPrimalWith :: (Equality a -> Maybe LinVarName) -- ^ Next basic variable
+                -> (LinVarName -> IneqStdForm Rational -> Equality a -> Equality a) -- ^ Substitution
+                -> (Tableau, Equality a)
+                -> Maybe (Tableau, Equality a)
+pivotPrimalWith nextBasic substituteObj (Tableau us us' basicc_s c_s, objective) = do
+  var   <- nextBasic objective
+  slack <- nextRowPrimal var c_s
   row   <- IntMap.lookup slack c_s
   let focal = flatten var row
-      focal' = mapVars (delete var) focal
+      focal' = mapVars (\(LinVarMap xs) -> LinVarMap $ Map.delete var xs) focal
   return ( Tableau us us'
-              (insertWith var focal' $
+              (Map.insert var focal' $
                   substituteRational var focal <$> basicc_s)
-              (substituteRational var focal <$> delete slack c_s)
-         , unEquStd $ substituteRational var focal (EquStd objective)
+              (substituteRational var focal <$> IntMap.delete slack c_s)
+         , substituteObj var focal objective
          )
 
 
-pivotDualRational :: (Tableau, Equality Rational) -> Maybe (Tableau, Equality Rational)
-pivotDualRational (Tableau us us' basicc_s c_s, objective) = do
+pivotDualWith :: (Equality a -> IneqStdForm Rational -> Maybe LinVarName) -- ^ Next basic variable
+              -> (LinVarName -> IneqStdForm Rational -> Equality a -> Equality a) -- ^ Substitution
+              -> (Tableau, Equality a)
+              -> Maybe (Tableau, Equality a)
+pivotDualWith nextBasic substituteObj (Tableau us us' basicc_s c_s, objective) = do
   slack <- nextRowDual c_s
   row   <- IntMap.lookup slack c_s
-  var   <- nextBasicDual objective row
+  var   <- nextBasic objective row
   let replacement = flatten var row
-      final       = mapVars (delete var) replacement
+      final       = mapVars (\(LinVarMap xs) -> LinVarMap $ Map.delete var xs) replacement
   return ( Tableau us us'
               (Map.insert var final $
                   substituteRational var replacement <$> basicc_s)
-              (substituteRational var replacement <$> delete slack c_s)
-         , unEquStd $ substituteRational var replacement (EquStd objective)
+              (substituteRational var replacement <$> IntMap.delete slack c_s)
+         , substituteObj var replacement objective
          )
 
 -- | Optimize when given a pivot function
@@ -192,20 +214,11 @@ simplexWith piv x =
    Nothing -> x
 
 -- | Primal maximizing optimization
--- simplexPrimal :: ( Ord b
---                  , CanDivideTo b b b
---                  , CanDivideTo Rational b b
---                  , CanDivideTo Rational b Rational
---                  , CanMultiplyTo b b b
---                  , CanMultiplyTo Rational b b
---                  , CanMultiplyTo Rational b Rational
---                  , CanSubTo b b b
---                  , CanSubTo Rational b Rational
---                  , IsZero b
---                  , HasZero b
---                  ) => (Tableau b, Equality Rational) -> (Tableau b, Equality Rational)
--- simplexPrimal = simplexWith pivotPrimal
+simplexPrimalRational :: (Tableau, Equality Rational) -> (Tableau, Equality Rational)
+simplexPrimalRational = simplexWith (pivotPrimalWith nextBasicPrimalRational (\a b c -> unEquStd $ substituteRational a b $ EquStd c))
 
 -- | Dual minimizing optimization
 simplexDualRational :: (Tableau, Equality Rational) -> (Tableau, Equality Rational)
-simplexDualRational = simplexWith pivotDualRational
+simplexDualRational = simplexWith (pivotDualWith nextBasicDualRational (\a b c -> unEquStd $ substituteRational a b $ EquStd c))
+
+

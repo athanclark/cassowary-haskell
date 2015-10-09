@@ -15,8 +15,8 @@ module Linear.Grammar
   ) where
 
 import Linear.Grammar.Types as X
-import Data.Set.Class as Sets
 
+import Data.Semigroup
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 
@@ -87,13 +87,13 @@ standardForm = go . standardize
       | ys == mempty = EquExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
       | otherwise =
           let ys' = mapCoeffVals ((-1 :: Rational) *) ys
-          in EquExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
+          in EquExpr (LinExpr (ys' <> xs) 0) (LinExpr mempty (yc - xc))
     standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
       | xs == mempty = LteExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
       | ys == mempty = LteExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
       | otherwise =
           let ys' = mapCoeffVals ((-1 :: Rational) *) ys
-          in LteExpr (LinExpr (ys' `union` xs) 0) (LinExpr mempty (yc - xc))
+          in LteExpr (LinExpr (ys' <> xs) 0) (LinExpr mempty (yc - xc))
 
 
 hasNoDups :: Ord a => [a] -> Bool
