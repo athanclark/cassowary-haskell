@@ -29,8 +29,8 @@ cassowarySpec = testGroup "Linear.Constraints.Cassowary"
     , QC.testProperty "results in 1" prop_flatten_1
     ]
   , testGroup "`substitute`"
-    -- [ QC.testProperty "on self should result in all 0s" prop_substitute_self0
-    [ QC.testProperty "results in 0 for any target" prop_substitute_any0
+    [ QC.testProperty "on self should result in all 0s" prop_substitute_self0
+    , QC.testProperty "results in 0 for any target" prop_substitute_any0
     ]
   -- , unitTests
   ]

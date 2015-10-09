@@ -18,6 +18,7 @@ Library
                         Linear.Grammar.Types
                         Linear.Constraints.Slack
                         Linear.Constraints.Tableau
+                        Linear.Constraints.Weights
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
   Build-Depends:        base >= 4.8 && < 5
@@ -45,6 +46,7 @@ Test-Suite spec
                         Linear.Constraints.Slack
                         Linear.Constraints.SlackSpec
                         Linear.Constraints.Tableau
+                        Linear.Constraints.Weights
                         Linear.Grammar
                         Linear.Grammar.Types
                         Linear.GrammarSpec 
