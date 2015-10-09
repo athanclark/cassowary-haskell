@@ -1,7 +1,8 @@
 language: haskell
-ghc: 7.8
+ghc: 7.10
 
 install:
+  - cabal configure --enable-tests
   - cabal install --only-dependencies --enable-tests
   - cabal install QuickCheck quickcheck-instances tasty tasty-quickcheck tasty-hunit
 

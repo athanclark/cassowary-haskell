@@ -81,7 +81,7 @@ blandRatioPrimal :: LinVarName -> IneqStdForm Rational -> Maybe Rational
 blandRatioPrimal var row = do
   coeff <- Map.lookup var $ unLinVarMap $ vars row
   guard $ coeff < 0
-  return $ constVal row / coeff
+  return $ negate (constVal row) / coeff
 
 
 -- ** Dual
