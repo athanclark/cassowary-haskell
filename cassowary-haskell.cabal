@@ -20,7 +20,7 @@ Library
                         Linear.Constraints.Tableau
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
-  Build-Depends:        base >= 4.6 && < 5
+  Build-Depends:        base >= 4.8 && < 5
                       , mtl
                       , transformers
                       , transformers-base
