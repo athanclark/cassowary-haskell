@@ -22,23 +22,25 @@ import Control.Monad.Base
 -- >     x  >= c
 -- > x + s1  = c
 makeSlackVars :: ( Foldable f
-                 ) => f (IneqStdForm Rational)
-                   -> IntMap.IntMap (IneqStdForm Rational)
+                 , Num a
+                 ) => f (IneqStdForm k a)
+                   -> IntMap.IntMap (IneqStdForm k a)
 makeSlackVars xs' = runST $ do
   k <- newSTRef 0
   runReaderT (foldlM mkSlackStdForm mempty xs') k
   where
     mkSlackStdForm :: ( MonadReader (STRef s Int) m
                       , MonadBase (ST s) m
-                      ) => IntMap.IntMap (IneqStdForm Rational)
-                        -> IneqStdForm Rational
-                        -> m (IntMap.IntMap (IneqStdForm Rational))
-    mkSlackStdForm acc (GteStd (Gte (LinVarMap xs) xc)) =
-      mkSlackStdForm acc $ LteStd $ Lte (LinVarMap $ fmap negate xs) $ negate xc
+                      , Num a
+                      ) => IntMap.IntMap (IneqStdForm k a)
+                        -> IneqStdForm k a
+                        -> m (IntMap.IntMap (IneqStdForm k a))
+    mkSlackStdForm acc (GteStd (Gte (LinExpr xs xc))) =
+      mkSlackStdForm acc $ LteStd $ Lte $ LinExpr (fmap negate xs) $ negate xc
     mkSlackStdForm acc c = do
       k <- ask
       i <- liftBase $ readSTRef k
       liftBase $ modifySTRef k (+1)
       return $ case c of
-        LteStd (Lte xs xc) -> IntMap.insert i (EquStd $ Equ xs xc) acc
-        _                  -> IntMap.insert i c acc
+        LteStd (Lte (LinExpr xs xc)) -> IntMap.insert i (EquStd $ Equ $ LinExpr xs xc) acc
+        _                            -> IntMap.insert i c acc

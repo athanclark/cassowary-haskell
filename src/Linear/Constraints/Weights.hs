@@ -2,6 +2,8 @@
     GeneralizedNewtypeDeriving
   , TypeSynonymInstances
   , FlexibleInstances
+  , DeriveFoldable
+  , DeriveTraversable
   , MultiParamTypeClasses
   #-}
 
@@ -10,6 +12,10 @@ module Linear.Constraints.Weights
   , makeWeight
   , withWeight
   , compressWeight
+  , addWeight
+  , subWeight
+  , addMapWeight
+  , subMapWeight
   ) where
 
 import Linear.Class
@@ -19,7 +25,8 @@ import Data.These
 import Data.Align
 import Data.Foldable
 import Data.Monoid
-import Data.Vector as V
+import qualified Data.Vector as V
+import qualified Data.Map as Map
 import Control.Applicative
 import Control.Monad
 import Test.QuickCheck
@@ -31,8 +38,8 @@ onBoth _ (That y) = y
 onBoth f (These x y) = f x y
 
 -- | Weighted value of type @a@.
-newtype Weight a = Weight {unWeight :: Vector a}
-  deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus)
+newtype Weight a = Weight {unWeight :: V.Vector a}
+  deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus, Foldable, Traversable)
 
 instance Arbitrary a => Arbitrary (Weight a) where
   arbitrary = sized go
@@ -41,14 +48,13 @@ instance Arbitrary a => Arbitrary (Weight a) where
                 xs <- V.replicateM n arbitrary
                 return $ Weight xs
 
-makeWeight :: Rational -> Int -> Weight Rational
+makeWeight :: Num a => a -> Int -> Weight a
 makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
                | otherwise = Weight $ V.replicate w 0 <> V.singleton x
 
--- | Applies @makeWeight@ to each coefficient after turning the input into
--- @standardForm@.
-withWeight :: IneqExpr -> Int -> IneqStdForm (Weight Rational)
-withWeight x w = mapVars (mapCoeffVals $ flip makeWeight w) $ standardForm x
+-- | Applies @makeWeight@ to each coefficient.
+withWeight :: Num a => IneqStdForm k a -> Int -> IneqStdForm k (Weight a)
+withWeight x w = fmap (flip makeWeight w) x
 
 
 instance (Eq a, Num a) => Eq (Weight a) where
@@ -57,15 +63,42 @@ instance (Eq a, Num a) => Eq (Weight a) where
 instance (Ord a, Num a) => Ord (Weight a) where
   compare (Weight xs) (Weight ys) = fold $ V.zipWith compare xs ys
 
-compressWeight :: Weight Rational -> Rational
+instance (Eq a, Num a) => Num (Weight a) where
+  (+)     = addWeight
+  (-)     = subWeight
+  xs * ys = (compressWeight xs) `leftMultWeight` ys
+  negate  = fmap negate
+  abs     = fmap abs
+  signum  = fmap signum
+  fromInteger i = Weight $ V.singleton $ fromInteger i
+
+compressWeight :: Num a => Weight a -> a
 compressWeight (Weight xs) = V.sum xs
 
-instance IsZero (Weight Rational) where
-  isZero' (Weight xs) = V.all (== 0) xs
+weightIsZero :: (Eq a, Num a) => Weight a -> Bool
+weightIsZero (Weight xs) = V.all (== 0) xs
 
-instance CanAddTo (Weight Rational) (Weight Rational) (Weight Rational) where
-  (Weight xs) .+. (Weight ys) = Weight $
-    V.filter (/= 0) $ alignWith (onBoth (+)) xs ys
+addWeight :: (Eq a, Num a) => Weight a -> Weight a -> Weight a
+addWeight (Weight xs) (Weight ys) = Weight $
+    let xs' = V.toList xs
+        ys' = V.toList ys
+    in V.fromList . foldr go [] $ alignWith (onBoth (+)) xs' ys'
+  where
+    go 0 [] = []
+    go z zs = z:zs
 
-instance CanSubTo (Weight Rational) (Weight Rational) (Weight Rational) where
-  xs .-. ys = xs .+. (fmap negate ys)
+addMapWeight :: (Ord k, Eq a, Num a) => Map.Map k (Weight a) -> Map.Map k (Weight a) -> Map.Map k (Weight a)
+addMapWeight xs ys = Map.filter (not . null) $ Map.unionWith addWeight xs ys
+
+subWeight :: (Eq a, Num a) => Weight a -> Weight a -> Weight a
+subWeight xs ys = addWeight xs (fmap negate ys)
+
+subMapWeight :: (Ord k, Eq a, Num a) => Map.Map k (Weight a) -> Map.Map k (Weight a) -> Map.Map k (Weight a)
+subMapWeight xs ys = Map.filter (not . null) $ Map.unionWith subWeight xs ys
+
+leftMultWeight :: Num a => a -> Weight a -> Weight a
+leftMultWeight x xs = fmap (x *) xs
+
+rightMultWeight :: Num a => Weight a -> a -> Weight a
+rightMultWeight = flip leftMultWeight
+

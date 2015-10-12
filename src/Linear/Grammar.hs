@@ -35,64 +35,65 @@ multLin (ECoeff e x) = case multLin e of
 multLin (EAdd e1 e2) = EAdd (multLin e1) (multLin e2)
 
 -- | Turns @LinAst@ to @LinExpr@ - should be done /after/ @multLin@.
-addLin :: LinAst -> LinExpr
-addLin = go (LinExpr (LinVarMap Map.empty) 0)
+addLin :: LinAst -> (LinExpr String Rational)
+addLin = go (LinExpr Map.empty 0)
   where
-    go :: LinExpr -> LinAst -> LinExpr
-    go (LinExpr (LinVarMap vs) c) (EVar n) =
-      LinExpr (LinVarMap $ maybe (Map.insert (VarMain n) 1 vs)
-                                 (\coeff -> Map.insert (VarMain n) (coeff + 1) vs) $
-                                 Map.lookup (VarMain n) vs) c
+    go :: LinExpr String Rational -> LinAst -> LinExpr String Rational
+    go (LinExpr vs c) (EVar n) =
+      LinExpr (maybe (Map.insert n 1 vs)
+                     (\coeff -> Map.insert n (coeff + 1) vs) $
+                  Map.lookup n vs) c
     go (LinExpr vs c) (ELit x) = LinExpr vs (c + x)
-    go (LinExpr (LinVarMap vs) c) (ECoeff (EVar n) x) =
-      LinExpr (LinVarMap $ maybe (Map.insert (VarMain n) x vs)
-                                 (\coeff -> Map.insert (VarMain n) (coeff + x) vs) $
-                                 Map.lookup (VarMain n) vs) c
-    go le (EAdd e1 e2) = mergeLinExpr (go le e1) (go le e2)
+    go acc (ECoeff _ 0) = acc
+    go (LinExpr vs c) (ECoeff (EVar n) x) =
+      LinExpr (maybe (Map.insert n x vs)
+                     (\coeff -> Map.insert n (coeff + x) vs) $
+                  Map.lookup n vs) c
+    go le (EAdd e1 e2) = go le e1 <> go le e2
     go _ _ = error "`addLin` was used on unprocessed input."
 
 
-(.==.) :: LinAst -> LinAst -> IneqExpr
+(.==.) :: LinAst -> LinAst -> IneqExpr String Rational
 x .==. y = EquExpr (makeLinExpr x) (makeLinExpr y)
 
 infixl 7 .==.
 
-(.<=.) :: LinAst -> LinAst -> IneqExpr
+(.<=.) :: LinAst -> LinAst -> IneqExpr String Rational
 x .<=. y = LteExpr (makeLinExpr x) (makeLinExpr y)
 
 infixl 7 .<=.
 
-(.=>.) :: LinAst -> LinAst -> IneqExpr
+(.=>.) :: LinAst -> LinAst -> IneqExpr String Rational
 (.=>.) = flip (.<=.)
 
 infixl 7 .=>.
 
-makeLinExpr :: LinAst -> LinExpr
+makeLinExpr :: LinAst -> LinExpr String Rational
 makeLinExpr = addLin . multLin
 
 -- | Turns a user-level AST to a structurally standard from inequality.
-standardForm :: IneqExpr -> IneqStdForm Rational
+standardForm :: IneqExpr String Rational -> IneqStdForm String Rational
 standardForm = go . standardize
   where
-    go (EquExpr (LinExpr xs xc) (LinExpr ys yc)) | xs == mempty && yc == 0 = EquStd $ Equ ys xc
-                                                 | ys == mempty && xc == 0 = EquStd $ Equ xs yc
-    go (LteExpr (LinExpr xs xc) (LinExpr ys yc)) | xs == mempty && yc == 0 = GteStd $ Gte ys xc -- Ax >= M
-                                                 | ys == mempty && xc == 0 = LteStd $ Lte xs yc -- Ax <= M
+    go (EquExpr (LinExpr xs xc) (LinExpr ys yc)) | xs == mempty && yc == 0 = EquStd $ Equ $ LinExpr ys xc
+                                                 | ys == mempty && xc == 0 = EquStd $ Equ $ LinExpr xs yc
+    go (LteExpr (LinExpr xs xc) (LinExpr ys yc)) | xs == mempty && yc == 0 = GteStd $ Gte $ LinExpr ys xc -- Ax >= M
+                                                 | ys == mempty && xc == 0 = LteStd $ Lte $ LinExpr xs yc -- Ax <= M
     go _ = error "Non-standard Ineq"
 
     -- Standardizes user-level inequalities - to be used before @standardForm@.
-    standardize :: IneqExpr -> IneqExpr
+    standardize :: IneqExpr String Rational -> IneqExpr String Rational
     standardize (EquExpr (LinExpr xs xc) (LinExpr ys yc))
       | xs == mempty = EquExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
       | ys == mempty = EquExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
       | otherwise =
-          let ys' = mapCoeffVals ((-1 :: Rational) *) ys
+          let ys' = negate <$> ys
           in EquExpr (LinExpr (ys' <> xs) 0) (LinExpr mempty (yc - xc))
     standardize (LteExpr (LinExpr xs xc) (LinExpr ys yc))
       | xs == mempty = LteExpr (LinExpr mempty (xc - yc)) (LinExpr ys 0)
       | ys == mempty = LteExpr (LinExpr xs 0) (LinExpr mempty (yc - xc))
       | otherwise =
-          let ys' = mapCoeffVals ((-1 :: Rational) *) ys
+          let ys' = negate <$> ys
           in LteExpr (LinExpr (ys' <> xs) 0) (LinExpr mempty (yc - xc))
 
 

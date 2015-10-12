@@ -28,16 +28,17 @@ prop_multReduction_Idempotency :: LinAst -> Bool
 prop_multReduction_Idempotency x = multLin x == multLin (multLin x)
 
 prop_addMutation_NonForgetful :: LinAst -> Bool
-prop_addMutation_NonForgetful x = Map.size (unLinVarMap $ linExprVars $ addLin $ multLin x)
+prop_addMutation_NonForgetful x = Map.size (linExprVars $ addLin $ multLin x)
                                == length (nub $ astVars $ multLin x)
   where
     astVars :: LinAst -> [String]
     astVars (EVar n) = [n]
     astVars (ELit _) = []
+    astVars (ECoeff _ 0) = []
     astVars (ECoeff e _) = astVars e
     astVars (EAdd e1 e2) = astVars e1 ++ astVars e2
 
 prop_linVar_notNull :: LinVar -> Bool
 prop_linVar_notNull (LinVar (VarMain n) _) = not $ null n
-prop_linVar_notNull (LinVar (VarError n _) _) = not $ null n
+prop_linVar_notNull (LinVar (VarRestricted (VarError n _)) _) = not $ null n
 prop_linVar_notNull _ = True

@@ -37,39 +37,41 @@ cassowarySpec = testGroup "Linear.Constraints.Cassowary"
 
 
 
-newtype IneqStdFormWithMember b = IneqStdFormWithMember
-  {unIneqStdFormWithMember :: (LinVarName, IneqStdForm b)}
+newtype IneqStdFormWithMember k a = IneqStdFormWithMember
+  {unIneqStdFormWithMember :: (k, IneqStdForm k a)}
   deriving (Show, Eq)
 
-instance (Arbitrary b, IsZero b) => Arbitrary (IneqStdFormWithMember b) where
+instance (Ord k, Arbitrary a, Arbitrary k, Eq a, Num a) => Arbitrary (IneqStdFormWithMember k a) where
   arbitrary = do
     body <- arbitrary
-    let ns = Map.keys $ unLinVarMap $ vars body
-    n <- oneof $ return <$> ns
+    let ns = Map.keys $ ineqStdVars body
+    n <- oneof $ pure <$> ns
     return $ IneqStdFormWithMember (n,body)
 
-prop_flatten_nonDestroy :: IneqStdFormWithMember Rational -> Bool
+prop_flatten_nonDestroy :: IneqStdFormWithMember LinVarName Rational -> Bool
 prop_flatten_nonDestroy (IneqStdFormWithMember (n,x)) =
-  Map.size (unLinVarMap $ vars x) == Map.size (unLinVarMap $ vars $ flatten n x)
+  Map.size (ineqStdVars x) == Map.size (ineqStdVars $ flatten n x)
 
-prop_flatten_idemp :: IneqStdFormWithMember Rational -> Bool
+prop_flatten_idemp :: IneqStdFormWithMember LinVarName Rational -> Bool
 prop_flatten_idemp (IneqStdFormWithMember (n,x)) =
   flatten n x == flatten n (flatten n x)
 
-prop_flatten_1 :: IneqStdFormWithMember Rational -> Bool
+prop_flatten_1 :: IneqStdFormWithMember LinVarName Rational -> Bool
 prop_flatten_1 (IneqStdFormWithMember (n,x)) =
-  case Map.lookup n $ unLinVarMap $ vars $ flatten n x of
+  case Map.lookup n $ ineqStdVars $ flatten n x of
     Nothing -> False
     Just 1 -> True
     Just _ -> False
 
-prop_substitute_self0 :: IneqStdFormWithMember Rational -> Bool
+prop_substitute_self0 :: IneqStdFormWithMember LinVarName Rational -> Bool
 prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
-  null $ coeffVals $ substituteRational n (flatten n x) (flatten n x)
+  null $ ineqStdVars $ substituteRational n (flatten n x) (flatten n x)
 
-prop_substitute_any0 :: IneqStdFormWithMember Rational -> IneqStdForm Rational -> Bool
+prop_substitute_any0 :: IneqStdFormWithMember LinVarName Rational
+                     -> IneqStdForm LinVarName Rational
+                     -> Bool
 prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
-  isNothing $ Map.lookup n $ unLinVarMap $ vars $ substituteRational n (flatten n x) y
+  isNothing $ Map.lookup n $ ineqStdVars $ substituteRational n (flatten n x) y
 
 -- unitTests :: TestTree
 -- unitTests = testGroup "Unit Tests"

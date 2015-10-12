@@ -3,11 +3,24 @@
   , DeriveFunctor
   , DeriveFoldable
   , FlexibleContexts
+  , FlexibleInstances
   , DeriveTraversable
   , StandaloneDeriving
   , ScopedTypeVariables
   , GeneralizedNewtypeDeriving
   #-}
+
+-- |
+-- ** Fundamental axioms of utility
+--
+-- Isolating a variable into basic-normal form
+-- (done by reciporicating its coefficient through its "defining" equation, then
+-- substituting that replacement in the rest of the constraints) leaves it invulnerable
+-- to manipulation from further variable isolation operations.
+--
+-- This means our algorithm has obvious and measurable traction, in terms of finding
+-- a more precise / optimal basic-feasible solution - each time we /can/ make a pivot
+-- (with Bland's rule), we get one step closer. If we can't, then we're optimal.
 
 module Linear.Constraints.Tableau where
 
@@ -25,85 +38,65 @@ import Control.Monad
 import Test.QuickCheck
 
 
-data Tableau = Tableau
-  { unrestricted      :: Map.Map String     (IneqStdForm Rational) -- ^ Unrestricted constraints with basic feasible solutions
-  , unrestrictedSlack :: IntMap.IntMap      (IneqStdForm Rational) -- ^ Unrestricted constraints with a unique slack variable
-  , restricted        :: Map.Map LinVarName (IneqStdForm Rational) -- ^ Restricted constraints with basic feasible solutions
-  , restrictedSlack   :: IntMap.IntMap      (IneqStdForm Rational) -- ^ Restricted constraints with a unique slack variable
+data Tableau k0 k1 = Tableau
+  { tableauBasic :: Map.Map k0    (IneqStdForm k1 Rational)
+  , tableauSlack :: IntMap.IntMap (IneqStdForm k1 Rational)
   } deriving (Show, Eq)
 
 -- For generating the correct tableaus
 newtype GenDisjointKey k a = GenDisjointKey {unGenDisjointKey :: [(k,a)]}
   deriving (Show, Eq)
 
-instance (Arbitrary k, Arbitrary a, HasNames k, HasNames a) => Arbitrary (GenDisjointKey k a) where
+instance Arbitrary (GenDisjointKey String (IneqStdForm LinVarName Rational)) where
   arbitrary = sized go
     where
       go s = do
         n <- choose (0,s)
         xs <- replicateM n $ do
           a <- arbitrary
-          k <- arbitrary `suchThat` (\k -> not $
-                    Set.fromList (names k)
-                  `Set.isSubsetOf` (Set.fromList (names a) :: Set.Set LinVarName))
+          k <- arbitrary `suchThat` (\k -> not $ (VarMain k) `Set.member` ineqStdKeysSet a)
           return (k,a)
         return $ GenDisjointKey xs
 
-instance Arbitrary Tableau where
+instance Arbitrary (GenDisjointKey Int (IneqStdForm RLinVarName Rational)) where
+  arbitrary = sized go
+    where
+      go s = do
+        n <- choose (0,s)
+        xs <- replicateM n $ do
+          a <- arbitrary
+          k <- arbitrary `suchThat` (\k -> not $ (VarSlack k) `Set.member` ineqStdKeysSet a)
+          return (k,a)
+        return $ GenDisjointKey xs
+
+instance Arbitrary (GenDisjointKey RLinVarName (IneqStdForm RLinVarName Rational)) where
+  arbitrary = sized go
+    where
+      go s = do
+        n <- choose (0,s)
+        xs <- replicateM n $ do
+          a <- arbitrary
+          k <- arbitrary `suchThat` (\k -> not $ k `Set.member` ineqStdKeysSet a)
+          return (k,a)
+        return $ GenDisjointKey xs
+
+
+
+instance Arbitrary (Tableau RLinVarName RLinVarName) where
   arbitrary = do
-    (GenDisjointKey us)  :: GenDisjointKey String (IneqStdForm Rational) <-
+    (GenDisjointKey us)  :: GenDisjointKey RLinVarName (IneqStdForm RLinVarName Rational) <-
       arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
 
-    (GenDisjointKey us') :: GenDisjointKey Int (IneqStdForm Rational) <-
+    (GenDisjointKey us') :: GenDisjointKey Int (IneqStdForm RLinVarName Rational) <-
       arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
-
-    (GenDisjointKey rs)  :: GenDisjointKey LinVarName (IneqStdForm Rational) <-
-      arbitrary `suchThat` (\(GenDisjointKey rs) ->
-        length rs > 0 && length rs < 100 && not (Map.keysSet (Map.fromList rs)
-                                      `Set.isSubsetOf` Map.keysSet (Map.mapKeys VarMain $ Map.fromList us)))
-    (GenDisjointKey rs') :: GenDisjointKey Int (IneqStdForm Rational) <-
-      arbitrary `suchThat` (\(GenDisjointKey rs') -> length rs' > 0
-                                                  && length rs' < 100
-                                                  && not ((Set.fromList $ fst <$> rs')
-                                         `Set.isSubsetOf` (Set.fromList $ fst <$> us')))
     return $ Tableau (Map.fromList us)
                      (IntMap.fromList us')
-                     (Map.fromList rs)
-                     (IntMap.fromList rs')
 
 
-basicFeasibleSolution :: Tableau -> Map.Map LinVarName Rational
-basicFeasibleSolution (Tableau us us' rs rs') =
-  let intMapToMap xs = Map.mapKeys (VarSlack . fromIntegral) $
+basicFeasibleSolution :: Tableau LinVarName k1 -> Map.Map LinVarName Rational
+basicFeasibleSolution (Tableau basic slack) =
+  let intMapToMap xs = Map.mapKeys (VarRestricted . VarSlack . fromIntegral) $
                          Map.fromList $ IntMap.toList xs
-      basicU = Map.mapKeys VarMain $ constVal <$> us
-      slackU = intMapToMap $ constVal <$> us'
-      basicR = constVal <$> rs
-      slackR = intMapToMap $ constVal <$> rs'
-  in basicU <> slackU <> basicR <> slackR
-
-unrestrictedMainVars :: Tableau -> Set.Set LinVarName
-unrestrictedMainVars (Tableau us us' _ _) =
-  Set.unions [ Set.map VarMain $ Map.keysSet us
-             , Set.fromList $ concatMap names us
-             , Set.fromList $ concatMap names us'
-             ]
-
--- * Construction
-
--- | Assumes all @VarMain@ to be @>= 0@
-makeRestrictedTableau :: ( Foldable f
-                         ) => f (IneqStdForm Rational) -> Tableau
-makeRestrictedTableau xs =
-  Tableau mempty
-          mempty
-          mempty
-          (makeSlackVars xs)
-
-makeUnrestrictedTableau :: ( Foldable f
-                           ) => f (IneqStdForm Rational) -> Tableau
-makeUnrestrictedTableau xs =
-  Tableau mempty
-          (makeSlackVars xs)
-          mempty
-          mempty
+      basic' = ineqStdConst <$> basic
+      slack' = intMapToMap $ ineqStdConst <$> slack
+  in basic' <> slack'

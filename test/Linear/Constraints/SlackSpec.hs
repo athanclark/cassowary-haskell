@@ -26,9 +26,9 @@ slackSpec = testGroup "Linear.Constraints.Slack"
   ]
 
 
-prop_makeSlackVars_equ :: [IneqStdForm Rational] -> Bool
+prop_makeSlackVars_equ :: [IneqStdForm LinVarName Rational] -> Bool
 prop_makeSlackVars_equ x = all isEqu $ makeSlackVars x
   where
-    isEqu :: IneqStdForm b -> Bool
+    isEqu :: IneqStdForm k b -> Bool
     isEqu (EquStd _) = True
     isEqu _ = False
