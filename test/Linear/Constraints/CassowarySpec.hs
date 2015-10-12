@@ -9,7 +9,6 @@ import Prelude hiding (lookup)
 
 import Linear.Constraints.Cassowary
 import Linear.Grammar
-import Linear.Class
 import Linear.Constraints.Tableau
 import Data.Maybe (isNothing)
 
@@ -48,6 +47,12 @@ instance (Ord k, Arbitrary a, Arbitrary k, Eq a, Num a) => Arbitrary (IneqStdFor
     n <- oneof $ pure <$> ns
     return $ IneqStdFormWithMember (n,body)
 
+
+-- * Flatten
+
+-- A function for re-orienting an equation's coefficients to set a target variable
+-- name to `1`, and the rest the reciporical of the diffierence.
+
 prop_flatten_nonDestroy :: IneqStdFormWithMember LinVarName Rational -> Bool
 prop_flatten_nonDestroy (IneqStdFormWithMember (n,x)) =
   Map.size (ineqStdVars x) == Map.size (ineqStdVars $ flatten n x)
@@ -63,6 +68,11 @@ prop_flatten_1 (IneqStdFormWithMember (n,x)) =
     Just 1 -> True
     Just _ -> False
 
+
+-- * Substitution
+
+-- A function for replacing a variable with an equation, inside another equation.
+
 prop_substitute_self0 :: IneqStdFormWithMember LinVarName Rational -> Bool
 prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
   null $ ineqStdVars $ substituteRational n (flatten n x) (flatten n x)
@@ -72,6 +82,13 @@ prop_substitute_any0 :: IneqStdFormWithMember LinVarName Rational
                      -> Bool
 prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
   isNothing $ Map.lookup n $ ineqStdVars $ substituteRational n (flatten n x) y
+
+
+-- * Simplex
+
+-- prop_optimize
+
+
 
 -- unitTests :: TestTree
 -- unitTests = testGroup "Unit Tests"

@@ -14,8 +14,6 @@ module Linear.Grammar.Types where
 
 import Prelude hiding (zip, filter, lookup)
 
-import Linear.Class
-
 import Data.Char
 import Data.String
 import Data.Semigroup
@@ -58,14 +56,11 @@ instance Arbitrary LinAst where
 instance IsString LinAst where
   fromString = EVar
 
-instance CanAddTo LinAst LinAst LinAst where
-  (.+.) = EAdd
+(.+.) :: LinAst -> LinAst -> LinAst
+(.+.) = EAdd
 
-instance CanMultiplyTo LinAst Rational LinAst where
-  (.*.) = ECoeff
-
-instance CanMultiplyTo Rational LinAst LinAst where
-  (.*.) = flip ECoeff
+(.*.) :: LinAst -> Rational -> LinAst
+(.*.) = ECoeff
 
 
 -- * Variables

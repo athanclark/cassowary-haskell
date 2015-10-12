@@ -12,13 +12,15 @@ module Linear.Constraints.Weights
   , makeWeight
   , withWeight
   , compressWeight
+  , weightIsZero
   , addWeight
   , subWeight
   , addMapWeight
   , subMapWeight
+  , leftMultWeight
+  , rightMultWeight
   ) where
 
-import Linear.Class
 import Linear.Grammar
 
 import Data.These
@@ -38,15 +40,17 @@ onBoth _ (That y) = y
 onBoth f (These x y) = f x y
 
 -- | Weighted value of type @a@.
-newtype Weight a = Weight {unWeight :: V.Vector a}
+newtype Weight a = Weight {getWeight :: V.Vector a}
   deriving (Show, Functor, Applicative, Monad, Alternative, MonadPlus, Foldable, Traversable)
 
-instance Arbitrary a => Arbitrary (Weight a) where
+instance (Eq a, Num a, Arbitrary a) => Arbitrary (Weight a) where
   arbitrary = sized go
     where
       go s = do n <- choose (0,s)
-                xs <- V.replicateM n arbitrary
-                return $ Weight xs
+                xs <- replicateM n arbitrary
+                return . Weight . V.fromList $ foldr noZeroTail [] xs
+      noZeroTail 0 [] = []
+      noZeroTail z zs = z:zs
 
 makeWeight :: Num a => a -> Int -> Weight a
 makeWeight x w | w < 0 = error "Attempted to create weight with negative value."

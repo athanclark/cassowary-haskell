@@ -14,7 +14,6 @@ import Prelude hiding (foldr, minimum, zip, lookup, filter)
 import Linear.Constraints.Tableau
 import Linear.Constraints.Weights
 import Linear.Grammar
-import Linear.Class
 
 import Data.Maybe hiding (mapMaybe, catMaybes)
 import Data.Semigroup

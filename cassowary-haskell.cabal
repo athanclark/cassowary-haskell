@@ -13,8 +13,7 @@ Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall -threaded -O2
-  Exposed-Modules:      Linear.Class
-                        Linear.Grammar
+  Exposed-Modules:      Linear.Grammar
                         Linear.Grammar.Types
                         Linear.Constraints.Slack
                         Linear.Constraints.Tableau
@@ -39,17 +38,18 @@ Test-Suite spec
                       , test
   Ghc-Options:          -Wall -threaded -O2
   Main-Is:              Main.hs
-  Other-Modules:        Linear.Class
+  Other-Modules:        
+                        Linear.GrammarSpec
+                        Linear.Constraints.WeightSpec
+                        Linear.Constraints.SlackSpec
+                        Linear.Constraints.CassowarySpec
                         Linear.Constraints.Cassowary
                         Linear.Constraints.Cassowary.AugmentedSimplex
-                        Linear.Constraints.CassowarySpec
                         Linear.Constraints.Slack
-                        Linear.Constraints.SlackSpec
                         Linear.Constraints.Tableau
                         Linear.Constraints.Weights
                         Linear.Grammar
                         Linear.Grammar.Types
-                        Linear.GrammarSpec 
   Build-Depends:        base
                       , tasty
                       , tasty-quickcheck
