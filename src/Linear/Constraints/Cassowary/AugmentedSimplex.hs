@@ -91,7 +91,7 @@ blandRatioPrimal :: ( Ord k
                       -> Maybe Rational
 blandRatioPrimal var row = do
   coeff <- Map.lookup var $ ineqStdVars row
-  guard $ coeff < 0
+  guard $ coeff > 0
   return $ negate (ineqStdConst row) / coeff
 
 
@@ -254,5 +254,3 @@ simplexDualRational :: ( Ord k
                        ) => (Tableau k k, Equality k Rational)
                          -> (Tableau k k, Equality k Rational)
 simplexDualRational = simplexWith (pivotDualWith nextBasicDualRational (\a b c -> unEquStd $ substituteRational a b $ EquStd c))
-
-
