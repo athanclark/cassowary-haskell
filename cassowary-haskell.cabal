@@ -26,6 +26,7 @@ Library
                       , transformers-base
                       , containers
                       , these
+                      , semialign
                       , semigroups
                       , QuickCheck
                       , quickcheck-instances
@@ -57,6 +58,8 @@ Test-Suite spec
                       , QuickCheck
                       , quickcheck-instances
                       , mtl
+                      , semialign
+                      , text
                       , transformers
                       , transformers-base
                       , containers

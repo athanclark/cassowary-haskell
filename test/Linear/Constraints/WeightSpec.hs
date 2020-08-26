@@ -18,7 +18,7 @@ weightSpec :: TestTree
 weightSpec = testGroup "Linear.Constraints.Weight"
   [ testGroup "Addition"
     [ QC.testProperty "a + -a = 0" prop_self_add_negate_zero
-    , QC.testProperty "[a + a + a .. a]_n ~ n `leftMult` a]" prop_self_add_n_mult
+    , QC.testProperty "[a + a + a .. a]_n ~ n `mult` a]" prop_self_add_n_mult
     ]
   , testGroup "Subtraction"
     [ QC.testProperty "a - a = 0" prop_self_sub_zero
@@ -33,7 +33,7 @@ prop_self_add_negate_zero :: Weight Rational -> Bool
 prop_self_add_negate_zero xs = xs + (-xs) == 0
 
 prop_self_add_n_mult :: Int -> Weight Rational -> Property
-prop_self_add_n_mult n xs = n > 0 ==> sum (replicate n xs) == (fromIntegral n) `leftMultWeight` xs
+prop_self_add_n_mult n xs = n > 0 ==> sum (replicate n xs) == (fromIntegral n) `multWeight` xs
 
 prop_self_sub_zero :: Weight Rational -> Bool
 prop_self_sub_zero xs = xs - xs == 0

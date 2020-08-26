@@ -11,65 +11,92 @@
   #-}
 
 -- |
--- ** Fundamental axioms of utility
+-- Fundamental axiom:
 --
 -- Isolating a variable into basic-normal form
 -- (done by reciporicating its coefficient through its "defining" equation, then
--- substituting that replacement in the rest of the constraints) leaves it invulnerable
--- to manipulation from further variable isolation operations.
+-- substituting that replacement in the rest of the constraints) leaves it /invulnerable to manipulation/
+-- from further variable isolation operations.
 --
 -- This means our algorithm has obvious and measurable traction, in terms of finding
--- a more precise / optimal basic-feasible solution - each time we /can/ make a pivot
+-- a more precise \/ optimal basic-feasible solution - each time we /can/ make a pivot
 -- (with Bland's rule), we get one step closer. If we can't, then we're optimal.
 
 module Linear.Constraints.Tableau where
 
 import Prelude hiding (lookup)
 
-import Linear.Constraints.Slack
-import Linear.Grammar
+import Linear.Grammar.Types
+  ( IneqStdForm
+  , LinVarName (VarRestricted, VarMain)
+  , RLinVarName (VarSlack)
+  , ineqStdConst
+  , ineqStdKeysSet
+  )
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
-import Data.Semigroup
-import Control.Monad
+import Control.Arrow (first)
+import Control.Monad (replicateM)
 
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary (arbitrary), sized, suchThat, choose)
 
 
-data Tableau k0 k1 = Tableau
-  { tableauBasic :: Map.Map k0    (IneqStdForm k1 Rational)
-  , tableauSlack :: IntMap.IntMap (IneqStdForm k1 Rational)
+
+data Tableau basicK slackK coeff const = Tableau
+  { tableauBasic :: Map.Map basicK (IneqStdForm basicK coeff const) -- ^ Tableau of basic variables
+  , tableauSlack :: IntMap.IntMap  (IneqStdForm slackK coeff const) -- ^ Tableau of slack variables, optimized for being an @Int@ unique reference
   } deriving (Show, Eq)
 
--- For generating the correct tableaus
+-- | For generating the correct tableaus
 newtype GenDisjointKey k a = GenDisjointKey {unGenDisjointKey :: [(k,a)]}
   deriving (Show, Eq)
 
-instance Arbitrary (GenDisjointKey String (IneqStdForm LinVarName Rational)) where
+instance
+  ( Arbitrary coeff
+  , Arbitrary const
+  , Arbitrary k
+  , Ord k
+  , Num coeff
+  , Eq coeff
+  ) => Arbitrary (GenDisjointKey k (IneqStdForm (LinVarName k) coeff const)) where
   arbitrary = sized go
     where
       go s = do
         n <- choose (0,s)
         xs <- replicateM n $ do
           a <- arbitrary
-          k <- arbitrary `suchThat` (\k -> not $ (VarMain k) `Set.member` ineqStdKeysSet a)
-          return (k,a)
-        return $ GenDisjointKey xs
+          k <- arbitrary `suchThat` (\k -> not $ VarMain k `Set.member` ineqStdKeysSet a)
+          pure (k,a)
+        pure (GenDisjointKey xs)
 
-instance Arbitrary (GenDisjointKey Int (IneqStdForm RLinVarName Rational)) where
+instance
+  ( Arbitrary coeff
+  , Arbitrary const
+  , Arbitrary k
+  , Ord k
+  , Num coeff
+  , Eq coeff
+  ) => Arbitrary (GenDisjointKey Int (IneqStdForm (RLinVarName k) coeff const)) where
   arbitrary = sized go
     where
       go s = do
         n <- choose (0,s)
         xs <- replicateM n $ do
           a <- arbitrary
-          k <- arbitrary `suchThat` (\k -> not $ (VarSlack k) `Set.member` ineqStdKeysSet a)
-          return (k,a)
-        return $ GenDisjointKey xs
+          k <- arbitrary `suchThat` (\k -> not $ VarSlack k `Set.member` ineqStdKeysSet a)
+          pure (k,a)
+        pure (GenDisjointKey xs)
 
-instance Arbitrary (GenDisjointKey RLinVarName (IneqStdForm RLinVarName Rational)) where
+instance
+  ( Arbitrary coeff
+  , Arbitrary const
+  , Arbitrary k
+  , Ord k
+  , Num coeff
+  , Eq coeff
+  ) => Arbitrary (GenDisjointKey (RLinVarName k) (IneqStdForm (RLinVarName k) coeff const)) where
   arbitrary = sized go
     where
       go s = do
@@ -77,26 +104,34 @@ instance Arbitrary (GenDisjointKey RLinVarName (IneqStdForm RLinVarName Rational
         xs <- replicateM n $ do
           a <- arbitrary
           k <- arbitrary `suchThat` (\k -> not $ k `Set.member` ineqStdKeysSet a)
-          return (k,a)
-        return $ GenDisjointKey xs
+          pure (k,a)
+        pure (GenDisjointKey xs)
 
 
 
-instance Arbitrary (Tableau RLinVarName RLinVarName) where
+instance
+  ( Arbitrary coeff
+  , Arbitrary const
+  , Arbitrary k
+  , Ord k
+  , Num coeff
+  , Eq coeff
+  ) => Arbitrary (Tableau (RLinVarName k) (RLinVarName k) coeff const) where
   arbitrary = do
-    (GenDisjointKey us)  :: GenDisjointKey RLinVarName (IneqStdForm RLinVarName Rational) <-
+    -- FIXME ensure that basic variables are actually basic
+    (GenDisjointKey us)  :: GenDisjointKey (RLinVarName k) (IneqStdForm (RLinVarName k) coeff const) <-
       arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
 
-    (GenDisjointKey us') :: GenDisjointKey Int (IneqStdForm RLinVarName Rational) <-
+    (GenDisjointKey us') :: GenDisjointKey Int (IneqStdForm (RLinVarName k) coeff const) <-
       arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
     return $ Tableau (Map.fromList us)
                      (IntMap.fromList us')
 
-
-basicFeasibleSolution :: Tableau LinVarName k1 -> Map.Map LinVarName Rational
+-- | Gets the BFS of the current Tableau
+basicFeasibleSolution :: Ord k => Tableau (LinVarName k) slackK coeff const -> Map.Map (LinVarName k) const
 basicFeasibleSolution (Tableau basic slack) =
-  let intMapToMap xs = Map.mapKeys (VarRestricted . VarSlack . fromIntegral) $
-                         Map.fromList $ IntMap.toList xs
+  let intMapToMap =
+        Map.fromList . map (first (VarRestricted . VarSlack)) . IntMap.toList
       basic' = ineqStdConst <$> basic
-      slack' = intMapToMap $ ineqStdConst <$> slack
+      slack' = intMapToMap (ineqStdConst <$> slack)
   in basic' <> slack'

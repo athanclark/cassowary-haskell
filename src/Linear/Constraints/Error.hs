@@ -22,10 +22,12 @@ import Data.Composition
 -- the positive component and one for the negative component, whose difference
 -- sums to be the original restricted variable:
 --
--- >   -∞ <= x <= ∞
--- > x_+ >= 0; x_- >= 0
+-- > -∞ <= x <= ∞
 -- >
--- >   x = x_+ - x_-
+-- > x_pos >= 0
+-- > x_neg >= 0
+-- >
+-- > x = x_pos - x_neg
 makeErrorVars :: ( Eq b
                  , CanMultiplyTo b b b
                  , CanMultiplyTo Rational b b

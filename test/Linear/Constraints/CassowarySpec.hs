@@ -9,8 +9,10 @@ import Prelude hiding (lookup)
 
 import Linear.Constraints.Cassowary
 import Linear.Grammar
+import Linear.Grammar.Types
 import Linear.Constraints.Tableau
 import Data.Maybe (isNothing)
+import Data.Text (Text)
 
 import qualified Data.Map as Map
 
@@ -37,15 +39,15 @@ cassowarySpec = testGroup "Linear.Constraints.Cassowary"
 
 
 newtype IneqStdFormWithMember k a = IneqStdFormWithMember
-  {unIneqStdFormWithMember :: (k, IneqStdForm k a)}
+  {unIneqStdFormWithMember :: (k, IneqStdForm k a a)}
   deriving (Show, Eq)
 
 instance (Ord k, Arbitrary a, Arbitrary k, Eq a, Num a) => Arbitrary (IneqStdFormWithMember k a) where
   arbitrary = do
     body <- arbitrary
-    let ns = Map.keys $ ineqStdVars body
-    n <- oneof $ pure <$> ns
-    return $ IneqStdFormWithMember (n,body)
+    let ns = Map.keys (ineqStdVars body)
+    n <- elements ns
+    return (IneqStdFormWithMember (n,body))
 
 
 -- * Flatten
@@ -53,15 +55,15 @@ instance (Ord k, Arbitrary a, Arbitrary k, Eq a, Num a) => Arbitrary (IneqStdFor
 -- A function for re-orienting an equation's coefficients to set a target variable
 -- name to `1`, and the rest the reciporical of the diffierence.
 
-prop_flatten_nonDestroy :: IneqStdFormWithMember LinVarName Rational -> Bool
+prop_flatten_nonDestroy :: IneqStdFormWithMember (LinVarName Text) Rational -> Bool
 prop_flatten_nonDestroy (IneqStdFormWithMember (n,x)) =
   Map.size (ineqStdVars x) == Map.size (ineqStdVars $ flatten n x)
 
-prop_flatten_idemp :: IneqStdFormWithMember LinVarName Rational -> Bool
+prop_flatten_idemp :: IneqStdFormWithMember (LinVarName Text) Rational -> Bool
 prop_flatten_idemp (IneqStdFormWithMember (n,x)) =
   flatten n x == flatten n (flatten n x)
 
-prop_flatten_1 :: IneqStdFormWithMember LinVarName Rational -> Bool
+prop_flatten_1 :: IneqStdFormWithMember (LinVarName Text) Rational -> Bool
 prop_flatten_1 (IneqStdFormWithMember (n,x)) =
   case Map.lookup n $ ineqStdVars $ flatten n x of
     Nothing -> False
@@ -73,12 +75,12 @@ prop_flatten_1 (IneqStdFormWithMember (n,x)) =
 
 -- A function for replacing a variable with an equation, inside another equation.
 
-prop_substitute_self0 :: IneqStdFormWithMember LinVarName Rational -> Bool
+prop_substitute_self0 :: IneqStdFormWithMember (LinVarName Text) Rational -> Bool
 prop_substitute_self0 (IneqStdFormWithMember (n,x)) =
   null $ ineqStdVars $ substituteRational n (flatten n x) (flatten n x)
 
-prop_substitute_any0 :: IneqStdFormWithMember LinVarName Rational
-                     -> IneqStdForm LinVarName Rational
+prop_substitute_any0 :: IneqStdFormWithMember (LinVarName Text) Rational
+                     -> IneqStdForm (LinVarName Text) Rational Rational
                      -> Bool
 prop_substitute_any0 (IneqStdFormWithMember (n,x)) y =
   isNothing $ Map.lookup n $ ineqStdVars $ substituteRational n (flatten n x) y

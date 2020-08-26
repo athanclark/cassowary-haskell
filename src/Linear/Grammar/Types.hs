@@ -14,132 +14,128 @@ module Linear.Grammar.Types where
 
 import Prelude hiding (zip, filter, lookup)
 
-import Data.Char
-import Data.String
-import Data.Semigroup
+import Data.String (IsString (fromString))
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import Control.Monad
+import Control.Monad (replicateM)
 
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary (arbitrary))
+import Test.QuickCheck.Gen (Gen, suchThat, oneof, choose, resize, sized, scale)
 import Test.QuickCheck.Instances ()
 
 
 -- * User-facing API
 
--- | User-facing abstract syntax tree
-data LinAst =
-    EVar String
-  | ELit Rational
-  | ECoeff LinAst Rational
-  | EAdd LinAst LinAst
+-- | User-facing abstract syntax tree, polymorphic in the numeric type used.
+data LinAst k a =
+    -- | Variable names
+    EVar k
+  | -- | Numeric literals
+    ELit a
+  | -- | A literal coefficient multiplied by some abstract syntax tree
+    ECoeff (LinAst k a) a
+  | -- | Two abstract syntax trees added together
+    EAdd (LinAst k a) (LinAst k a)
   deriving (Show, Eq)
 
-
-instance Arbitrary LinAst where
+instance (Arbitrary a, Arbitrary k) => Arbitrary (LinAst k a) where
   arbitrary = sized go
     where
-      go :: Int -> Gen LinAst
-      go s | s <= 1 = oneof [ EVar <$> stringName
-                            , ELit <$> between1000Rational
-                            ]
-           | otherwise = oneof [ EVar <$> stringName
-                               , ELit <$> between1000Rational
-                               , liftM2 ECoeff (scale (subtract 1) arbitrary)
-                                          between1000Rational
-                               , do n <- choose (0,s-1)
-                                    liftM2 EAdd (resize n arbitrary)
-                                           (resize n arbitrary)
-                               ]
+      go :: Arbitrary a => Arbitrary k => Int -> Gen (LinAst k a)
+      go s
+        | s <= 1 = oneof
+          [ EVar <$> arbitrary
+          , ELit <$> arbitrary
+          ]
+        | otherwise = oneof
+          [ EVar <$> arbitrary
+          , ELit <$> arbitrary
+          , ECoeff <$> scale (subtract 1) arbitrary <*> arbitrary
+          , do
+              n <- choose (0,s-1)
+              EAdd <$> resize n arbitrary <*> resize n arbitrary
+          ]
 
+instance IsString k => IsString (LinAst k a) where
+  fromString = EVar . fromString
 
-instance IsString LinAst where
-  fromString = EVar
-
-(.+.) :: LinAst -> LinAst -> LinAst
+-- | Addition operation
+(.+.) :: LinAst k a -> LinAst k a -> LinAst k a
 (.+.) = EAdd
 
-(.*.) :: LinAst -> Rational -> LinAst
+-- | Multiplication operation
+(.*.) :: LinAst k a -> a -> LinAst k a
 (.*.) = ECoeff
 
+-- TODO fixity?
 
 -- * Variables
 
+-- | Sign for error variables - converting a positive or negative number, to strictly a positive
+-- number, flagged by its sign.
 data ErrorSign = ErrNeg | ErrPos
   deriving (Show, Eq, Ord)
 
 instance Arbitrary ErrorSign where
   arbitrary = boolToErrorSign <$> arbitrary
-
-isErrPos :: ErrorSign -> Bool
-isErrPos ErrPos = True
-isErrPos _      = False
-
-isErrNeg :: ErrorSign -> Bool
-isErrNeg = not . isErrPos
-
-boolToErrorSign :: Bool -> ErrorSign
-boolToErrorSign b = if b then ErrPos else ErrNeg
+    where
+      boolToErrorSign b = if b then ErrPos else ErrNeg
 
 -- | /Restricted/ linear variable name types - only slack variables and error
--- variables are known to be @>= 0).
-data RLinVarName =
-    VarSlack {unVarSlack :: Int}
-  | VarError {unVarError :: String, unVarErrorSign :: ErrorSign}
+-- variables are known to be @>= 0@.
+data RLinVarName k =
+    -- | Slack variable, with a unique name iterated by a stateful @Int@.
+    VarSlack Int
+  | -- | Error variable for stay and edit constraints, with its original name and the sign; either positive or negative.
+    VarError k ErrorSign
   deriving (Show, Eq, Ord)
 
-instance Arbitrary RLinVarName where
-  arbitrary = oneof [ VarSlack <$> arbitrary `suchThat` (\x -> x <= 1000 && x >= 0)
-                    , liftM2 VarError stringName arbitrary
-                    ]
+instance Arbitrary k => Arbitrary (RLinVarName k) where
+  arbitrary = oneof
+    [ VarSlack <$> choose (0, 1000)
+    , VarError <$> arbitrary <*> arbitrary
+    ]
 
--- | Includes both restricted and unrestricted variables
-data LinVarName =
-    VarMain       {unVarMain       :: String}
-  | VarRestricted {unVarRestricted :: RLinVarName}
-  deriving (Show, Eq, Ord)
+-- | Type representing both restricted and unrestricted variables
+data LinVarName k =
+    VarMain k
+  | VarRestricted (RLinVarName k)
+  deriving (Eq, Ord)
 
-unLinVarName :: LinVarName -> String
-unLinVarName (VarMain n)    = n
-unLinVarName (VarRestricted (VarSlack n))   = show n
-unLinVarName (VarRestricted (VarError n b)) = "error_" ++ n ++ if isErrPos b
-                                                               then "_+"
-                                                               else "_-"
+-- | Not intended to be parsed afterward, just for debugging
+instance Show k => Show (LinVarName k) where
+  show x = case x of
+    VarMain n -> show n
+    VarRestricted (VarSlack n) -> show n
+    VarRestricted (VarError n b) ->
+      "error_"
+        ++ show n
+        ++ if b == ErrPos then "_+" else "_-"
 
-mapLinVarName :: (String -> String) -> LinVarName -> LinVarName
-mapLinVarName f (VarMain n)    = VarMain $ f n
-mapLinVarName f (VarRestricted (VarError n b)) = VarRestricted $ VarError (f n) b
-mapLinVarName _ n              = n
+instance Arbitrary k => Arbitrary (LinVarName k) where
+  arbitrary = oneof
+    [ VarMain <$> arbitrary
+    , VarRestricted <$> arbitrary
+    ]
 
-instance Arbitrary LinVarName where
-  arbitrary = oneof [ VarMain       <$> stringName
-                    , VarRestricted <$> arbitrary
-                    ]
-
-
-data LinVar = LinVar
-  { varName  :: LinVarName
-  , varCoeff :: Rational
+-- | Linear variable
+data LinVar k a = LinVar
+  { varName  :: LinVarName k
+  , varCoeff :: a
   } deriving (Show, Eq)
 
-instance Arbitrary LinVar where
-  arbitrary = liftM2 LinVar arbitrary between1000Rational
+instance (Arbitrary a, Arbitrary k) => Arbitrary (LinVar k a) where
+  arbitrary = LinVar <$> arbitrary <*> arbitrary
 
 -- | Name-based ordering
-instance Ord LinVar where
+instance (Eq a, Ord k) => Ord (LinVar k a) where
   compare (LinVar x _) (LinVar y _) = compare x y
-
-linVarHasName :: String -> LinVar -> Bool
-linVarHasName n (LinVar m _) = n == unLinVarName m
-
-linVarHasCoeff :: Rational -> LinVar -> Bool
-linVarHasCoeff x (LinVar _ y) = x == y
 
 -- * Variables with Coefficients
 
-
+-- | Delete any @0@ entries, and union the mappings with addition.
 addMap :: (Ord k, Eq a, Num a) => Map.Map k a -> Map.Map k a -> Map.Map k a
-addMap xs ys = Map.filter (not . (== 0)) $ Map.unionWith (+) xs ys
+addMap xs ys = Map.filter (/= 0) (Map.unionWith (+) xs ys)
 
 subMap :: (Ord k, Eq a, Num a) => Map.Map k a -> Map.Map k a -> Map.Map k a
 subMap xs ys = addMap xs (negate <$> ys)
@@ -147,121 +143,114 @@ subMap xs ys = addMap xs (negate <$> ys)
 -- * Expressions
 
 -- | Linear expressions suited for normal and standard form.
-data LinExpr var coeff = LinExpr
-  { linExprVars  :: Map.Map var coeff
-  , linExprConst :: Rational
+data LinExpr var coeff const = LinExpr
+  { linExprVars  :: Map.Map var coeff -- ^ The sum of variables and their coefficients
+  , linExprConst :: const -- ^ In standard form, the constant in @const = sum [var * coeff, var * coeff, ...]@
   } deriving (Show, Eq, Functor, Foldable, Traversable)
 
-
-instance (Ord k, Eq a, Arbitrary k, Arbitrary a, Num a) => Arbitrary (LinExpr k a) where
+-- FIXME if it's a random string, will it still be alphanumeric?
+instance (Ord k, Eq a, Arbitrary k, Arbitrary a, Num a, Arbitrary c) => Arbitrary (LinExpr k a c) where
   arbitrary = do
-    xs <- arbitrary `suchThat` (\xs -> Map.size xs <= 1000
-                                    && Map.size xs > 0
-                                    && not (any (== 0) xs))
-    (LinExpr xs) <$> between1000Rational
+    n <- choose (0, 1000)
+    let genEntry = (,) <$> arbitrary <*> (arbitrary `suchThat` (/= 0))
+    LinExpr <$> (Map.fromList <$> replicateM n genEntry) <*> arbitrary
 
-mergeLinExpr :: (Ord k, Eq a, Num a) => LinExpr k a -> LinExpr k a -> LinExpr k a
+mergeLinExpr :: (Ord k, Eq a, Num a, Num c) => LinExpr k a c -> LinExpr k a c -> LinExpr k a c
 mergeLinExpr (LinExpr vs1 x) (LinExpr vs2 y) = LinExpr (addMap vs1 vs2) (x + y)
 
-instance (Ord k, Eq a, Num a) => Semigroup (LinExpr k a) where
+instance (Ord k, Eq a, Num a, Num c) => Semigroup (LinExpr k a c) where
   (<>) = mergeLinExpr
 
-instance (Ord k, Eq a, Num a) => Monoid (LinExpr k a) where
+instance (Ord k, Eq a, Num a, Num c) => Monoid (LinExpr k a c) where
   mempty = LinExpr mempty 0
   mappend = mergeLinExpr
 
-linExprKeys :: LinExpr k a -> [k]
+linExprKeys :: LinExpr k a c -> [k]
 linExprKeys (LinExpr xs _) = Map.keys xs
 
-linExprKeysSet :: LinExpr k a -> Set.Set k
+linExprKeysSet :: LinExpr k a c -> Set.Set k
 linExprKeysSet (LinExpr xs _) = Map.keysSet xs
 
-linExprMapConst :: (Rational -> Rational) -> LinExpr k a -> LinExpr k a
+-- FIXME make it a functor?
+
+linExprMapConst :: (c -> c') -> LinExpr k a c -> LinExpr k a c'
 linExprMapConst f (LinExpr xs xc) = LinExpr xs (f xc)
 
-linExprMapVars :: (Map.Map k0 a -> Map.Map k1 b) -> LinExpr k0 a -> LinExpr k1 b
+linExprMapVars :: (Map.Map k a -> Map.Map k' a') -> LinExpr k a c -> LinExpr k' a' c
 linExprMapVars f (LinExpr xs xc) = LinExpr (f xs) xc
 
 
 -- * Equations
 
 -- | User-level inequalities
-data IneqExpr k a =
-    EquExpr (LinExpr k a) (LinExpr k a)
-  | LteExpr (LinExpr k a) (LinExpr k a)
+data IneqExpr k a c =
+    -- | An equality equation - @foo == bar@
+    EquExpr (LinExpr k a c) (LinExpr k a c)
+  | -- | A "less than or equal to" equation - @foo <= bar@
+    LteExpr (LinExpr k a c) (LinExpr k a c)
   deriving (Show, Eq)
 
-instance (Ord k, Arbitrary k, Arbitrary a, Num a, Eq a) => Arbitrary (IneqExpr k a) where
+instance (Ord k, Arbitrary k, Arbitrary a, Num a, Eq a, Arbitrary c) => Arbitrary (IneqExpr k a c) where
   arbitrary = oneof
-    [ liftM2 EquExpr arbitrary arbitrary
-    , liftM2 LteExpr arbitrary arbitrary
+    [ EquExpr <$> arbitrary <*> arbitrary
+    , LteExpr <$> arbitrary <*> arbitrary
     ]
 
 -- * Standard Form Equations
 
--- Exact equality
-newtype Equality k a = Equ {getEqu :: LinExpr k a}
+-- | Exact equality
+newtype Equality k a c = Equ {getEqu :: LinExpr k a c}
   deriving (Show, Eq, Functor, Foldable, Traversable, Arbitrary)
 
--- Less-than inequality
-newtype LInequality k a = Lte {getLte :: LinExpr k a}
+-- | Less-than or equal to inequality
+newtype LInequality k a c = Lte {getLte :: LinExpr k a c}
   deriving (Show, Eq, Functor, Foldable, Traversable, Arbitrary)
 
--- Greater-than inequality
-newtype GInequality k a = Gte {getGte :: LinExpr k a}
+-- | Greater-than or equal to inequality
+newtype GInequality k a c = Gte {getGte :: LinExpr k a c}
   deriving (Show, Eq, Functor, Foldable, Traversable, Arbitrary)
 
 -- | Internal structure for linear equations
-data IneqStdForm k a =
-    EquStd {unEquStd :: Equality    k a}
-  | LteStd {unLteStd :: LInequality k a}
-  | GteStd {unGteStd :: GInequality k a}
-  deriving (Show, Eq, Functor, Foldable, Traversable)
+data IneqStdForm k a c =
+    EquStd {unEquStd :: Equality    k a c}
+  | LteStd {unLteStd :: LInequality k a c}
+  | GteStd {unGteStd :: GInequality k a c}
+  deriving (Show, Eq)
 
-instance (Ord k, Arbitrary k, Arbitrary a, Num a, Eq a) => Arbitrary (IneqStdForm k a) where
-  arbitrary = oneof [ EquStd <$> arbitrary
-                    , LteStd <$> arbitrary
-                    , GteStd <$> arbitrary
-                    ]
+-- FIXME remove partial functions
+
+instance (Ord k, Arbitrary k, Arbitrary a, Num a, Eq a, Arbitrary c) => Arbitrary (IneqStdForm k a c) where
+  arbitrary = oneof
+    [ EquStd <$> arbitrary
+    , LteStd <$> arbitrary
+    , GteStd <$> arbitrary
+    ]
 
 
--- | Lose inequality data
-ineqStdToLinExpr :: IneqStdForm k a -> LinExpr k a
+-- | Loses inequality data
+ineqStdToLinExpr :: IneqStdForm k a c -> LinExpr k a c
 ineqStdToLinExpr (EquStd (Equ x)) = x
 ineqStdToLinExpr (LteStd (Lte x)) = x
 ineqStdToLinExpr (GteStd (Gte x)) = x
 
-ineqStdKeys :: IneqStdForm k a -> [k]
+ineqStdKeys :: IneqStdForm k a c -> [k]
 ineqStdKeys = linExprKeys . ineqStdToLinExpr
 
-ineqStdKeysSet :: IneqStdForm k a -> Set.Set k
+ineqStdKeysSet :: IneqStdForm k a c -> Set.Set k
 ineqStdKeysSet = linExprKeysSet . ineqStdToLinExpr
 
-ineqStdConst :: IneqStdForm k a -> Rational
+ineqStdConst :: IneqStdForm k a c -> c
 ineqStdConst = linExprConst . ineqStdToLinExpr
 
-ineqStdVars :: IneqStdForm k a -> Map.Map k a
+ineqStdVars :: IneqStdForm k a c -> Map.Map k a
 ineqStdVars = linExprVars . ineqStdToLinExpr
 
-ineqStdMapConst :: (Rational -> Rational) -> IneqStdForm k a -> IneqStdForm k a
+ineqStdMapConst :: (c -> c') -> IneqStdForm k a c -> IneqStdForm k a c'
 ineqStdMapConst f (EquStd (Equ x)) = EquStd . Equ $ linExprMapConst f x
 ineqStdMapConst f (LteStd (Lte x)) = LteStd . Lte $ linExprMapConst f x
 ineqStdMapConst f (GteStd (Gte x)) = GteStd . Gte $ linExprMapConst f x
 
-ineqStdMapVars :: (Map.Map k0 a -> Map.Map k1 b) -> IneqStdForm k0 a -> IneqStdForm k1 b
+ineqStdMapVars :: (Map.Map k a -> Map.Map k' a') -> IneqStdForm k a c -> IneqStdForm k' a' c
 ineqStdMapVars f (EquStd (Equ x)) = EquStd . Equ $ linExprMapVars f x
 ineqStdMapVars f (LteStd (Lte x)) = LteStd . Lte $ linExprMapVars f x
 ineqStdMapVars f (GteStd (Gte x)) = GteStd . Gte $ linExprMapVars f x
-
-
-
--- * Orphan instances
-
-between1000Rational :: Gen Rational
-between1000Rational = fromIntegral <$> (arbitrary :: Gen Int)
-  `suchThat` (\x -> x <= 1000 && x >= -1000)
-
-
-stringName :: Gen String
-stringName = arbitrary `suchThat`
-  (\x -> length x < 5 && not (null x) && all isAlpha x)
