@@ -1,0 +1,72 @@
+name:                cassowary-haskell
+version:             0.0.0
+github:              "athanclark/cassowary-haskell"
+license:             MIT
+author:              "Athan Clark"
+maintainer:          "athan.clark@gmail.com"
+copyright:           "2015, 2016, 2017, 2018, 2019, 2020 Athan Clark"
+
+extra-source-files:
+- README.md
+
+# Metadata used when publishing your package
+synopsis:            Implementation of the Cassowary linear constraint solver
+category:            Numeric
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/athanclark/cassowary-haskell#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- mtl
+- text
+- transformers
+- transformers-base
+- containers
+- these
+- semialign
+- semigroups
+- QuickCheck
+- quickcheck-instances
+- vector
+
+library:
+  source-dirs: src
+
+# executables:
+#   foo-exe:
+#     main:                Main.hs
+#     source-dirs:         app
+#     ghc-options:
+#     - -threaded
+#     - -rtsopts
+#     - -with-rtsopts=-N
+#     dependencies:
+#     - foo
+
+tests:
+  cassowary-haskell-test:
+    main:                Main.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - cassowary-haskell
+    - tasty
+    - tasty-quickcheck
+    - tasty-hunit
+
+bench:
+  cassowary-haskell-bench:
+    main:                Profile.hs
+    source-dirs:         bench
+    ghc-options:
+    - -02
+    - -threaded
+    dependencies:
+    - cassowary-haskell
+    - criterion

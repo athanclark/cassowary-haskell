@@ -124,8 +124,7 @@ instance
 
     (GenDisjointKey us') :: GenDisjointKey Int (IneqStdForm (RLinVarName k) coeff const) <-
       arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
-    return $ Tableau (Map.fromList us)
-                     (IntMap.fromList us')
+    pure (Tableau (Map.fromList us) (IntMap.fromList us'))
 
 -- | Gets the BFS of the current Tableau
 basicFeasibleSolution :: Ord k => Tableau (LinVarName k) slackK coeff const -> Map.Map (LinVarName k) const

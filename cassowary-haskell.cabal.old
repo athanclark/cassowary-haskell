@@ -1,0 +1,95 @@
+Name:                   cassowary-haskell
+Version:                0.0.0
+Author:                 Athan Clark <athan.clark@gmail.com>
+Maintainer:             Athan Clark <athan.clark@gmail.com>
+License:                MIT
+License-File:           LICENSE
+Synopsis:               A modern Cassowary implementation in pure Haskell.
+-- Description:
+Cabal-Version:          >= 1.10
+Build-Type:             Simple
+
+Library
+  Default-Language:     Haskell2010
+  HS-Source-Dirs:       src
+  GHC-Options:          -Wall -threaded -O2
+  Exposed-Modules:      Linear.Grammar
+                        Linear.Grammar.Types
+                        Linear.Constraints.Slack
+                        Linear.Constraints.Error
+                        Linear.Constraints.Tableau
+                        Linear.Constraints.Weights
+                        Linear.Constraints.Cassowary
+                        Linear.Constraints.Cassowary.Basic
+                        Linear.Constraints.Cassowary.Bland
+                        Linear.Constraints.Cassowary.AugmentedSimplex
+  Build-Depends:        base >= 4.8 && < 5
+                      , mtl
+                      , transformers
+                      , transformers-base
+                      , containers
+                      , these
+                      , semialign
+                      , semigroups
+                      , QuickCheck
+                      , quickcheck-instances
+                      , vector
+
+Test-Suite spec
+  Type:                 exitcode-stdio-1.0
+  Default-Language:     Haskell2010
+  Hs-Source-Dirs:       src
+                      , test
+  Ghc-Options:          -Wall -threaded -O2
+  Main-Is:              Main.hs
+  Other-Modules:        
+                        Linear.GrammarSpec
+                        Linear.Constraints.WeightSpec
+                        Linear.Constraints.SlackSpec
+                        Linear.Constraints.CassowarySpec
+                        Linear.Constraints.Cassowary
+                        Linear.Constraints.Cassowary.AugmentedSimplex
+                        Linear.Constraints.Slack
+                        Linear.Constraints.Tableau
+                        Linear.Constraints.Weights
+                        Linear.Grammar
+                        Linear.Grammar.Types
+  Build-Depends:        base
+                      , tasty
+                      , tasty-quickcheck
+                      , tasty-hunit
+                      , QuickCheck
+                      , quickcheck-instances
+                      , mtl
+                      , semialign
+                      , text
+                      , transformers
+                      , transformers-base
+                      , containers
+                      , these
+                      , semigroups
+                      , vector
+
+Benchmark profile
+  Type:                 exitcode-stdio-1.0
+  Main-Is:              Profile.hs
+  Hs-Source-Dirs:       bench
+                      , src
+  GHC-Options:          -O2 -threaded
+  Build-Depends:        base
+                      , criterion
+                      , QuickCheck
+                      , quickcheck-instances
+                      , mtl
+                      , transformers
+                      , transformers-base
+                      , containers
+                      , witherable
+                      , these
+                      , keys
+                      , sets
+                      , composition
+
+Source-Repository head
+  Type:                 git
+  Location:             https://github.com/athanclark/cassowary-haskell.git

@@ -1,19 +1,24 @@
 {-# LANGUAGE
-    FlexibleContexts
+    RankNTypes
+  , ScopedTypeVariables
   #-}
 
 module Linear.Constraints.Error where
 
-import Linear.Class
-import Linear.Constraints.Tableau
-import Linear.Constraints.Cassowary
-import Linear.Grammar
-import Data.Set.Class as Sets
-import Data.Set.Unordered.Unique (unUUSet)
-
+-- import Linear.Class
+import Linear.Constraints.Tableau (Tableau (Tableau))
+import Linear.Constraints.Cassowary.AugmentedSimplex ()
+import Linear.Grammar.Types
+  ( IneqStdForm (EquStd)
+  , Equality (Equ)
+  , LinVarName (VarMain, VarRestricted)
+  , RLinVarName (VarError)
+  , LinExpr (LinExpr)
+  )
+-- import Data.Set.Class as Sets
+-- import Data.Set.Unordered.Unique (unUUSet)
 import qualified Data.Map as Map
-import Data.Maybe
-import Data.Composition
+-- import Data.Composition ((.*))
 
 
 -- * Error Variables
@@ -28,43 +33,56 @@ import Data.Composition
 -- > x_neg >= 0
 -- >
 -- > x = x_pos - x_neg
-makeErrorVars :: ( Eq b
-                 , CanMultiplyTo b b b
-                 , CanMultiplyTo Rational b b
-                 , CanMultiplyTo Rational b Rational
-                 , CanSubTo b b b
-                 , CanSubTo Rational b Rational
-                 , HasOne b
-                 , HasNegOne b
-                 , IsZero b
-                 , HasZero b
-                 ) => Tableau b -> (Tableau b, Equality b)
+makeErrorVars :: forall k a c
+               . ( Num a
+                 ) => Tableau k k' a c
+                   -> (Tableau k k' a c, Equality k a c)
 makeErrorVars t@(Tableau (BNFTableau us, us') (BNFTableau rs, rs')) =
-  let u = unUUSet $ unrestrictedMainVars t
-      toSub = Map.fromList $ do
-        (VarMain n) <- u
-        return ( VarMain n -- from Main var to its ErrVar equation
-               , EquStd $ Equ (LinVarMap $ Map.fromList
-                    [ (VarError n ErrPos, one')
-                    , (VarError n ErrNeg, negone')
-                    ]) 0
-               )
-      newErrs = Map.fromList $ mapMaybe
-                 (\(VarMain u') -> do
-                   -- Restricts unrestricted vars
-                   equation <- Map.lookup u' us
-                   return ( VarError u' ErrPos
-                          , mapVars
-                              (\(LinVarMap xs) -> LinVarMap $ xs `union` Map.singleton (VarError u' ErrNeg) one')
-                              equation
-                          ))
-                 u -- "for every basic unrestricted var, re-orient to the positive error var in basic form"
+  let u = unUUSet (unrestrictedMainVars t)
+      substitutions :: Map.Map (LinVarName k) (IneqStdForm (RLinVarName k) a c)
+      substitutions =
+        let errVarMapping :: LinVarName k -> (LinVarName k, IneqStdForm (RLinVarName k) a c)
+            errVarMapping (VarMain n) =
+              ( VarMain n -- from Main var to its ErrVar equation
+              , EquStd $ Equ $ LinExpr (Map.fromList [(VarError n ErrPos,1), (VarError n ErrNeg,-1)]) 0
+              )
+        in  Map.fromList (errVarMapping <$> u)
+
+      newErrs :: Map.Map (RLinVarName k) (IneqStdForm (RLinVarName k) a c)
+      newErrs =
+        -- Restricts unrestricted vars
+        let errVarMapping :: LinVarName k -> Maybe (RLinVarName k, IneqStdForm )
+            errVarMapping (VarMain n) = do
+              equation <- Map.lookup n us
+              pure
+                ( VarError n ErrPos
+                , ineqStdMapVars
+                    (\xs -> xs `Map.union` Map.singleton (VarError n ErrNeg) 1)
+                    equation
+                )
+        -- "for every basic unrestricted var, re-orient to the positive error var in basic form"
+        in  Map.fromList (mapMaybe errVarMapping u)
+
+      newus :: Map.Map k (IneqStdForm (RLinVarName k) a c)
       newus = us `union` Map.mapKeys (\(VarMain n) -> n) toSub -- unrestricted
-      newus'  = Map.foldWithKey (fmap .* substitute) us' toSub -- post-substitution
-      newrs'  = Map.foldWithKey (fmap .* substitute) rs' toSub
-      newrs = Map.foldWithKey (fmap .* substitute) rs toSub `union` newErrs
-      f' = Equ (LinVarMap $ Map.fromList $ concatMap
-                  (\(VarMain n) -> [(VarError n ErrPos,one'),(VarError n ErrNeg,one')])
-                  u)
-               0
-  in (Tableau (BNFTableau newus, newus') (BNFTableau newrs, newrs'), f')
+
+      applySubstitutions :: forall f
+                          . Functor f
+                         => LinVarName k
+                         -> IneqStdForm (RLinVarName k) a c
+                         -> f (IneqStdForm (RLinVarName k) a c)
+                         -> f (IneqStdForm (RLinVarName k) a c)
+      applySubstitutions k equ set = fmap (substitute k equ) set
+
+      newus'  = Map.foldrWithKey applySubstitutions us' toSub
+      newrs'  = Map.foldrWithKey applySubstitutions rs' toSub
+
+      newrs :: Map.Map (RLinVarName k) (IneqStdForm (RLinVarName k) a c)
+      newrs = Map.foldrWithKey applySubstitutions rs toSub `Map.union` newErrs -- FIXME might assume disjoint?
+
+      nameMapping :: Equality k a c
+      nameMapping =
+        let makeErrVars (VarMain n) = [(VarError n ErrPos, 1), (VarError n ErrNeg, 1)]
+        in  Equ (LinExpr (Map.fromList (concatMap makeErrVars u)) 0)
+
+  in  (Tableau (BNFTableau newus, newus') (BNFTableau newrs, newrs'), nameMapping)

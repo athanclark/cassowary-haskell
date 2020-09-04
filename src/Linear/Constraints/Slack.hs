@@ -50,7 +50,7 @@ makeSlackVars xs' = runST $ do
           i' <- readSTRef k
           modifySTRef k (+1)
           pure i'
-      return $ case c of
+      pure $ case c of
         LteStd (Lte (LinExpr xs xc)) ->
           IntMap.insert i (EquStd $ Equ $ LinExpr xs xc) acc
         _ ->

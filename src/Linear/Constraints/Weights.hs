@@ -48,13 +48,13 @@ instance (Eq a, Num a, Arbitrary a) => Arbitrary (Weight a) where
       go s = do
         n <- choose (0,s)
         xs <- replicateM n arbitrary
-        return . Weight $ V.fromList (foldr noZeroTail [] xs)
+        pure . Weight . V.fromList $ foldr noZeroTail [] xs
       noZeroTail 0 [] = []
       noZeroTail z zs = z:zs
 
 makeWeight :: Num a => a -> Int -> Weight a
 makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
-               | otherwise = Weight $ V.replicate w 0 <> V.singleton x
+               | otherwise = Weight (V.replicate w 0 <> V.singleton x)
 
 -- | Applies 'makeWeight' to each coefficient.
 withWeight :: Num a => IneqStdForm k a c -> Int -> IneqStdForm k (Weight a) c
