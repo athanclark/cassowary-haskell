@@ -2,13 +2,10 @@ module Linear.Constraints.Cassowary.Basic where
 
 import Prelude hiding (const)
 import Linear.Constraints.Cassowary.Bland (blandRatioPrimal, blandRatioDual)
-import Linear.Grammar.Types
+import Linear.Grammar.Types.Class (mapAllVars, getVars, getConst)
+import Linear.Grammar.Types.Inequalities
   ( Equality (Equ, getEqu)
   , IneqStdForm
-  , linExprMapVars
-  , linExprVars
-  , ineqStdVars
-  , ineqStdConst
   )
 import Linear.Constraints.Weights (Weight (Weight))
 
@@ -28,7 +25,7 @@ nextBasicPrimal :: ( Ord a
 nextBasicPrimal (Equ objective) = do
   -- gets the first successful, minimal result
   let minSnd var coeff = Option $ Just $ Min $ Snd (var, coeff)
-      Option mKeyVal = Map.foldMapWithKey minSnd (linExprVars objective)
+      Option mKeyVal = Map.foldMapWithKey minSnd (getVars objective)
   (var,coeff) <- getSnd . getMin <$> mKeyVal
   guard (coeff < 0) -- Must be positive, but the /most/ negative out of the set
   pure var
@@ -40,12 +37,12 @@ nextBasicPrimalWeight :: ( Ord a
 nextBasicPrimalWeight (Equ objective) = go 0
   where
     go n
-      | all (\(Weight x) -> length x <= n) (linExprVars objective) = Nothing -- base case
+      | all (\(Weight x) -> length x <= n) (getVars objective) = Nothing -- base case
       | otherwise =
           let currentResult =
                 nextBasicPrimal $
                   Equ $
-                    linExprMapVars (Map.mapMaybe (\(Weight y) -> y V.!? n)) objective -- get the weight at n
+                    mapAllVars (Map.mapMaybe (\(Weight y) -> y V.!? n)) objective -- get the weight at n
               recurseResult = go (n + 1)
           in  getFirst (First currentResult <> First recurseResult)
 
@@ -59,8 +56,8 @@ nextBasicDual :: ( Ord k
                    -> IneqStdForm k a c -- ^ Row
                    -> Maybe k
 nextBasicDual objective row = do
-  let osMap = linExprVars (getEqu objective)
-      xsMap = ineqStdVars row
+  let osMap = getVars (getEqu objective)
+      xsMap = getVars row
       allVars = osMap <> xsMap
       (Option mKeyVar) =
         let go var _ = Option $ (\ratio -> Min $ Snd (var,ratio)) <$> blandRatioDual var objective row
@@ -79,11 +76,11 @@ nextBasicDualWeight (Equ objective) row =
   go 0
   where
     go n
-      | all (\(Weight x) -> length x <= n) $ linExprVars objective = Nothing
+      | all (\(Weight x) -> length x <= n) (getVars objective) = Nothing
       | otherwise =
           let currentResult =
                 nextBasicDual
-                  (Equ $ linExprMapVars (Map.mapMaybe (\(Weight y) -> y V.!? n)) objective)
+                  (Equ (mapAllVars (Map.mapMaybe (\(Weight y) -> y V.!? n)) objective))
                       row
               recurseResult = go (n + 1)
           in  getFirst (First currentResult <> First recurseResult)
@@ -112,9 +109,9 @@ nextRowDual :: ( Ord c
 nextRowDual xs = do
   let (Option mKeyVal) =
         IntMap.foldMapWithKey
-          (\slack row -> Option $ Just $ Min $ Snd (slack,ineqStdConst row))
+          (\slack row -> Option $ Just $ Min $ Snd (slack, getConst row))
           xs
-  (slack,const) <- (getSnd . getMin) <$> mKeyVal
+  (slack,const) <- getSnd . getMin <$> mKeyVal
   guard (const < 0)
   pure slack
 

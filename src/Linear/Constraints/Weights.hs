@@ -20,7 +20,8 @@ module Linear.Constraints.Weights
   , multWeight
   ) where
 
-import Linear.Grammar.Types (IneqStdForm, ineqStdMapVars)
+import Linear.Grammar.Types.Class (mapVars)
+import Linear.Grammar.Types.Inequalities (IneqStdForm)
 
 import Data.These (These (These, This, That), these)
 import Data.Align (alignWith)
@@ -58,7 +59,7 @@ makeWeight x w | w < 0 = error "Attempted to create weight with negative value."
 
 -- | Applies 'makeWeight' to each coefficient.
 withWeight :: Num a => IneqStdForm k a c -> Int -> IneqStdForm k (Weight a) c
-withWeight x w = ineqStdMapVars (fmap (flip makeWeight w)) x
+withWeight x w = mapVars (`makeWeight` w) x
 
 
 instance (Eq a, Num a) => Eq (Weight a) where
@@ -101,5 +102,5 @@ subMapWeight :: (Ord k, Eq a, Num a) => Map.Map k (Weight a) -> Map.Map k (Weigh
 subMapWeight xs ys = Map.filter (not . null) (Map.unionWith subWeight xs ys)
 
 multWeight :: Num a => a -> Weight a -> Weight a
-multWeight x xs = fmap (x *) xs
+multWeight x = fmap (x *)
 

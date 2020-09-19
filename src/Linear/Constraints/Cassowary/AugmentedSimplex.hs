@@ -26,16 +26,11 @@ import Linear.Constraints.Weights
   , subMapWeight
   , compressWeight
   )
-import Linear.Grammar.Types
+import Linear.Grammar.Types.Class (getVars, mapVars, getConst, mapConst, mapAllVars)
+import Linear.Grammar.Types.Utilities (subMap)
+import Linear.Grammar.Types.Inequalities
   ( Equality (Equ, getEqu)
   , IneqStdForm (EquStd, unEquStd)
-  , ineqStdVars
-  , ineqStdMapVars
-  , ineqStdConst
-  , ineqStdMapConst
-  , subMap
-  , linExprVars
-  , linExprMapVars
   )
 
 import Data.Maybe (fromMaybe) -- hiding (mapMaybe, catMaybes)
@@ -82,7 +77,7 @@ pivotPrimalWith nextBasic substituteObj (Tableau cBasic cSlack, objective) = do
   row <- IntMap.lookup slack cSlack
   let replacement :: IneqStdForm k a a
       replacement = flatten var row
-      final = ineqStdMapVars (Map.delete var) replacement
+      final = mapAllVars (Map.delete var) replacement
   pure
     ( Tableau
         (Map.insert var final $ substitute var replacement <$> cBasic)
@@ -116,7 +111,7 @@ pivotDualWith nextBasic substituteObj (Tableau cBasic cSlack, objective) = do
   (var :: k) <- nextBasic objective row
   let replacement :: IneqStdForm k a a
       replacement = flatten var row
-      final       = ineqStdMapVars (Map.delete var) replacement
+      final       = mapAllVars (Map.delete var) replacement
   pure
     ( Tableau
         (Map.insert var final $ substitute var replacement <$> cBasic)

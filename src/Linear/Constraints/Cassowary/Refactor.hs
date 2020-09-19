@@ -5,14 +5,9 @@
 
 module Linear.Constraints.Cassowary.Refactor where
 
-import Linear.Grammar.Types
-  ( IneqStdForm
-  , ineqStdVars
-  , ineqStdConst
-  , ineqStdMapConst
-  , ineqStdMapVars
-  , subMap
-  )
+import Linear.Grammar.Types.Class (getVars, getConst, mapConst, mapVars, mapAllVars)
+import Linear.Grammar.Types.Utilities (subMap)
+import Linear.Grammar.Types.Inequalities (IneqStdForm)
 import Linear.Constraints.Weights
   ( Weight
   , compressWeight
@@ -31,8 +26,8 @@ flatten :: ( Ord k
            ) => k
              -> IneqStdForm k a a
              -> IneqStdForm k a a
-flatten var row = case Map.lookup var (ineqStdVars row) of
-  Just coeff -> ineqStdMapConst (/ coeff) (ineqStdMapVars (fmap (/ coeff)) row)
+flatten var row = case Map.lookup var (getVars row) of
+  Just coeff -> mapConst (/ coeff) (mapVars (/ coeff) row)
   Nothing    -> error "`flatten` should be called with a variable that exists in the equation"
 
 
@@ -46,14 +41,12 @@ substitute :: forall k a
                 -> IneqStdForm k a a -- ^ Subject
                 -> IneqStdForm k a a
 substitute var replacement target =
-  case Map.lookup var (ineqStdVars target) of
+  case Map.lookup var (getVars target) of
     Just existingCoeff ->
       let magnifiedReplacement =
-            let mapCoeffs :: IneqStdForm k a c -> IneqStdForm k a c
-                mapCoeffs = ineqStdMapVars (fmap (existingCoeff *))
-            in  mapCoeffs (ineqStdMapConst (existingCoeff *) replacement)
-      in  ineqStdMapVars  (`subMap` (ineqStdVars magnifiedReplacement))
-            (ineqStdMapConst (subtract (ineqStdConst magnifiedReplacement)) target)
+            mapVars (existingCoeff *) (mapConst (existingCoeff *) replacement)
+      in  mapAllVars (`subMap` (getVars magnifiedReplacement))
+            (mapConst (subtract (getConst magnifiedReplacement)) target)
     Nothing -> target
 
 substituteWeight :: forall k a
@@ -65,14 +58,14 @@ substituteWeight :: forall k a
                       -> IneqStdForm k (Weight a) a -- ^ Subject
                       -> IneqStdForm k (Weight a) a
 substituteWeight var replacement target =
-  case Map.lookup var (ineqStdVars target) of
+  case Map.lookup var (getVars target) of
     Just existingCoeff ->
       let magnifiedReplacement =
             let mapCoeffs :: IneqStdForm k a c -> IneqStdForm k (Weight a) c
-                mapCoeffs = ineqStdMapVars (fmap (\c -> fmap (c *) existingCoeff))
+                mapCoeffs = mapVars (\c -> fmap (c *) existingCoeff) -- FIXME use a proper weighted mult?
                 existingCoeff' :: a
                 existingCoeff' = compressWeight existingCoeff
-            in  mapCoeffs (ineqStdMapConst (existingCoeff' *) replacement)
-      in  ineqStdMapVars (`subMapWeight` (ineqStdVars magnifiedReplacement))
-            (ineqStdMapConst (subtract (ineqStdConst magnifiedReplacement)) target)
+            in  mapCoeffs (mapConst (existingCoeff' *) replacement)
+      in  mapAllVars (`subMapWeight` (getVars magnifiedReplacement))
+            (mapConst (subtract (getConst magnifiedReplacement)) target)
     Nothing -> target

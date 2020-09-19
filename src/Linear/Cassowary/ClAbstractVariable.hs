@@ -1,6 +1,6 @@
 module Linear.Cassowary.ClAbstractVariable where
 
-import Linaer.Cassowary.ClVariable (ClVariable (..))
+import Linear.Cassowary.ClVariable (ClVariable (..))
 import Linear.Cassowary.ClSlackVariable (ClSlackVariable (..))
 import Linear.Cassowary.ClDummyVariable (ClDummyVariable (..))
 
@@ -10,33 +10,33 @@ class ClAbstractVariable a where
   -- | Name of the variable, for debugging
   name :: a -> Text
   -- | Whether or not the variable is used for anything except a placeholder
-  isDummy :: a -> Boolean
+  isDummy :: a -> Bool
   -- | Whether or not the variable is user-facing, and provided by the user
-  isExternal :: a -> Boolean
+  isExternal :: a -> Bool
   -- | Whether or not we can pivot on this variable to become basic
-  isPivotable :: a -> Boolean
+  isPivotable :: a -> Bool
   -- | Whether or not the variable is restricted to be @>= 0@
-  isRestricted :: a -> Boolean
+  isRestricted :: a -> Bool
 
 instance ClAbstractVariable ClVariable where
   name (ClVariable x) = x
-  isDummy _ = false
-  isExternal _ = true
-  isPivotable _ = false
-  isRestricted _ = false
+  isDummy _ = False
+  isExternal _ = True
+  isPivotable _ = False
+  isRestricted _ = False
 
 instance ClAbstractVariable ClSlackVariable where
   name (ClSlackVariable x) = x
-  isDummy _ = false
-  isExternal _ = false
-  isPivotable _ = true
-  isRestricted _ = true
+  isDummy _ = False
+  isExternal _ = False
+  isPivotable _ = True
+  isRestricted _ = True
 
 instance ClAbstractVariable ClDummyVariable where
   name (ClDummyVariable x) = x
-  isDummy _ = true
-  isExternal _ = false
-  isPivotable _ = false
-  isRestricted _ = true
+  isDummy _ = True
+  isExternal _ = False
+  isPivotable _ = False
+  isRestricted _ = True
 
 

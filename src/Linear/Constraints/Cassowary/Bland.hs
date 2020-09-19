@@ -1,6 +1,7 @@
 module Linear.Constraints.Cassowary.Bland where
 
-import Linear.Grammar.Types (Equality (Equ), IneqStdForm, ineqStdVars, ineqStdConst, linExprVars)
+import Linear.Grammar.Types.Class (getVars, getConst)
+import Linear.Grammar.Types.Inequalities (Equality (Equ), IneqStdForm)
 
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -18,9 +19,9 @@ blandRatioPrimal :: ( Ord k
                       -> IneqStdForm k a a -- ^ Row
                       -> Maybe a
 blandRatioPrimal var row = do
-  coeff <- Map.lookup var (ineqStdVars row)
+  coeff <- Map.lookup var (getVars row)
   guard (coeff < 0)
-  pure (negate (ineqStdConst row) / coeff)
+  pure (negate (getConst row) / coeff)
 
 -- | Bland's method, for maximal optimization.
 blandRatioDual :: ( Ord k
@@ -32,7 +33,7 @@ blandRatioDual :: ( Ord k
                     -> IneqStdForm k a c
                     -> Maybe a
 blandRatioDual var (Equ objective) row = do
-  let o = fromMaybe 0 (Map.lookup var (linExprVars objective))
-  x <- Map.lookup var (ineqStdVars row)
+  let o = fromMaybe 0 (Map.lookup var (getVars objective))
+  x <- Map.lookup var (getVars row)
   guard (x > 0)
   pure (o / x)

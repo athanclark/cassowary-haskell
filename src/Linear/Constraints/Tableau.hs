@@ -26,12 +26,11 @@ module Linear.Constraints.Tableau where
 
 import Prelude hiding (lookup)
 
-import Linear.Grammar.Types
-  ( IneqStdForm
-  , LinVarName (VarRestricted, VarMain)
+import Linear.Grammar.Types.Class (getConst, getKeysSet)
+import Linear.Grammar.Types.Inequalities (IneqStdForm)
+import Linear.Grammar.Types.Variables
+  ( LinVarName (VarRestricted, VarMain)
   , RLinVarName (VarSlack)
-  , ineqStdConst
-  , ineqStdKeysSet
   )
 
 import qualified Data.Map as Map
@@ -67,7 +66,7 @@ instance
         n <- choose (0,s)
         xs <- replicateM n $ do
           a <- arbitrary
-          k <- arbitrary `suchThat` (\k -> not $ VarMain k `Set.member` ineqStdKeysSet a)
+          k <- arbitrary `suchThat` (\k -> not $ VarMain k `Set.member` getKeysSet a)
           pure (k,a)
         pure (GenDisjointKey xs)
 
@@ -85,7 +84,7 @@ instance
         n <- choose (0,s)
         xs <- replicateM n $ do
           a <- arbitrary
-          k <- arbitrary `suchThat` (\k -> not $ VarSlack k `Set.member` ineqStdKeysSet a)
+          k <- arbitrary `suchThat` (\k -> not $ VarSlack k `Set.member` getKeysSet a)
           pure (k,a)
         pure (GenDisjointKey xs)
 
@@ -103,7 +102,7 @@ instance
         n <- choose (0,s)
         xs <- replicateM n $ do
           a <- arbitrary
-          k <- arbitrary `suchThat` (\k -> not $ k `Set.member` ineqStdKeysSet a)
+          k <- arbitrary `suchThat` (\k -> not $ k `Set.member` getKeysSet a)
           pure (k,a)
         pure (GenDisjointKey xs)
 
@@ -120,10 +119,10 @@ instance
   arbitrary = do
     -- FIXME ensure that basic variables are actually basic
     (GenDisjointKey us)  :: GenDisjointKey (RLinVarName k) (IneqStdForm (RLinVarName k) coeff const) <-
-      arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
+      arbitrary `suchThat` (\(GenDisjointKey x) -> not (null x) && length x < 100)
 
     (GenDisjointKey us') :: GenDisjointKey Int (IneqStdForm (RLinVarName k) coeff const) <-
-      arbitrary `suchThat` (\(GenDisjointKey x) -> length x > 0 && length x < 100)
+      arbitrary `suchThat` (\(GenDisjointKey x) -> not (null x) && length x < 100)
     pure (Tableau (Map.fromList us) (IntMap.fromList us'))
 
 -- | Gets the BFS of the current Tableau
@@ -131,6 +130,6 @@ basicFeasibleSolution :: Ord k => Tableau (LinVarName k) slackK coeff const -> M
 basicFeasibleSolution (Tableau basic slack) =
   let intMapToMap =
         Map.fromList . map (first (VarRestricted . VarSlack)) . IntMap.toList
-      basic' = ineqStdConst <$> basic
-      slack' = intMapToMap (ineqStdConst <$> slack)
+      basic' = getConst <$> basic
+      slack' = intMapToMap (getConst <$> slack)
   in basic' <> slack'

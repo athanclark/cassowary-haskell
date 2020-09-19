@@ -3,12 +3,19 @@
   , ScopedTypeVariables
   #-}
 
-module Linear.Grammar where
+module Linear.Grammar
+  ( (.+.)
+  , (.*.)
+  , (.==.)
+  , (.<=.)
+  , (.>=.)
+  , module Linear.Grammar.Types.Inequalities
+  )where
 
 import Linear.Grammar.Types.Syntax (LinAst (EAdd, ECoeff))
 import Linear.Grammar.Types.Expressions (makeLinExpr)
-import Linear.Grammar.Types.Inequalities (IneqExpr (EquExpr, LteExpr))
-
+import qualified Linear.Grammar.Types.Inequalities as Ineq
+import Linear.Grammar.Types.Inequalities (standardForm)
 
 
 -- | Addition operation
@@ -23,17 +30,17 @@ infixl 6 .+.
 
 infixl 5 .*.
 
-(.==.) :: Eq a => Num a => Ord k => LinAst k a -> LinAst k a -> IneqExpr k a a
-x .==. y = EquExpr (makeLinExpr x) (makeLinExpr y)
+(.==.) :: Eq a => Num a => Ord k => LinAst k a -> LinAst k a -> Ineq.IneqExpr k a a
+x .==. y = Ineq.EquExpr (makeLinExpr x) (makeLinExpr y)
 
 infixl 7 .==.
 
-(.<=.) :: Eq a => Num a => Ord k => LinAst k a -> LinAst k a -> IneqExpr k a a
-x .<=. y = LteExpr (makeLinExpr x) (makeLinExpr y)
+(.<=.) :: Eq a => Num a => Ord k => LinAst k a -> LinAst k a -> Ineq.IneqExpr k a a
+x .<=. y = Ineq.LteExpr (makeLinExpr x) (makeLinExpr y)
 
 infixl 7 .<=.
 
-(.>=.) :: Eq a => Num a => Ord k => LinAst k a -> LinAst k a -> IneqExpr k a a
+(.>=.) :: Eq a => Num a => Ord k => LinAst k a -> LinAst k a -> Ineq.IneqExpr k a a
 (.>=.) = flip (.<=.)
 
 infixl 7 .>=.

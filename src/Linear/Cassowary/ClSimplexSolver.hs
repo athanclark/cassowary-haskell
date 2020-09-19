@@ -2,28 +2,28 @@ module Linear.Cassowary.ClSimplexSolver where
 
 
 
-addConstraint :: ClSimplexSolver -> ClConstraint -> IO ()
+-- addConstraint :: ClSimplexSolver -> ClConstraint -> IO ()
 
-removeConstraint :: ClSimplexSolver -> ClConstraint -> IO ()
+-- removeConstraint :: ClSimplexSolver -> ClConstraint -> IO ()
 
-addEditVar :: ClSimplexSolver -> ClVariable -> ClStrength -> IO ()
+-- addEditVar :: ClSimplexSolver -> ClVariable -> ClStrength -> IO ()
 
-removeEditVar :: ClSimplexSolver -> ClVariable -> IO ()
+-- removeEditVar :: ClSimplexSolver -> ClVariable -> IO ()
 
-beginEdit :: ClSimplexSolver -> IO ()
+-- beginEdit :: ClSimplexSolver -> IO ()
 
-suggestValue :: ClSimplexSolver -> ClVariable -> Double -> IO ()
+-- suggestValue :: ClSimplexSolver -> ClVariable -> Double -> IO ()
 
-endEdit :: ClSimplexSolver -> IO ()
+-- endEdit :: ClSimplexSolver -> IO ()
 
-resolve :: ClSimplexSolver -> IO ()
+-- resolve :: ClSimplexSolver -> IO ()
 
--- addPointStays :: ClSimplexSolver -> [(ClVariable, ClVariable)] -> IO () ?
+-- -- addPointStays :: ClSimplexSolver -> [(ClVariable, ClVariable)] -> IO () ?
 
-setAutoSolve :: ClSimplexSolver -> Boolean -> IO ()
+-- setAutoSolve :: ClSimplexSolver -> Boolean -> IO ()
 
-isAutoSolving :: ClSimplexSolver -> IO Boolean
+-- isAutoSolving :: ClSimplexSolver -> IO Boolean
 
-solve :: ClSimplexSolver -> IO ()
+-- solve :: ClSimplexSolver -> IO ()
 
-reset :: ClSimplexSolver -> IO ()
+-- reset :: ClSimplexSolver -> IO ()

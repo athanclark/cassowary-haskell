@@ -8,12 +8,14 @@ module Linear.Constraints.Error where
 -- import Linear.Class
 import Linear.Constraints.Tableau (Tableau (Tableau))
 import Linear.Constraints.Cassowary.AugmentedSimplex ()
-import Linear.Grammar.Types
+import Linear.Grammar.Types.Inequalities
   ( IneqStdForm (EquStd)
   , Equality (Equ)
-  , LinVarName (VarMain, VarRestricted)
+  )
+import Linear.Grammar.Types.Expressions (LinExpr (LinExpr))
+import Linear.Grammar.Types.Variables
+  ( LinVarName (VarMain, VarRestricted)
   , RLinVarName (VarError)
-  , LinExpr (LinExpr)
   )
 -- import Data.Set.Class as Sets
 -- import Data.Set.Unordered.Unique (unUUSet)

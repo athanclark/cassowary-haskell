@@ -6,12 +6,11 @@
 
 module Linear.Constraints.Slack where
 
-import Linear.Grammar.Types
-  ( IneqStdForm (EquStd, LteStd, GteStd)
+import Linear.Grammar.Types.Expressions (LinExpr (LinExpr))
+import Linear.Grammar.Types.Inequalities
+  ( IneqStdForm (EquStd, LteStd)
   , Equality (Equ)
   , LInequality (Lte)
-  , GInequality (Gte)
-  , LinExpr (LinExpr)
   )
 
 import qualified Data.IntMap as IntMap
@@ -41,8 +40,6 @@ makeSlackVars xs' = runST $ do
     mkSlackStdForm :: IntMap.IntMap (IneqStdForm k a c)
                    -> IneqStdForm k a c
                    -> ReaderT (STRef s Int) (ST s) (IntMap.IntMap (IneqStdForm k a c))
-    mkSlackStdForm acc (GteStd (Gte (LinExpr xs xc))) =
-      mkSlackStdForm acc $ LteStd $ Lte $ LinExpr (fmap negate xs) (negate xc)
     mkSlackStdForm acc c = do
       i <- do
         k <- ask
